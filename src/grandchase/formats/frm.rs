@@ -13,7 +13,7 @@ pub struct Frm {
     /// The frames of the animation over time. The frames are supposed to be played at 55 FPS.
     pub frames: Vec<Frame>,
 
-    /// The translation of the whole skeleton along the Z axis over time. It is only present in
+    /// The translation of the entire skeleton along the Z axis over time. It is only present in
     /// FRM v1.1. There is one translation value for each frame of the animation.
     pub pos_z: Vec<f32>,
 }
