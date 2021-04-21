@@ -29,10 +29,10 @@ pub struct Converter {
 
 impl Converter {
     /// Generic helper function that creates a new converter.
-    fn new<I: Importer + 'static, E: Exporter + 'static>(
+    fn new(
         format: &'static str,
-        importer: I,
-        exporter: E,
+        importer: impl Importer + 'static,
+        exporter: impl Exporter + 'static,
     ) -> Self {
         Self {
             format,

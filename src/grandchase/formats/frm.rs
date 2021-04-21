@@ -13,9 +13,7 @@ pub struct Frm {
     pub frames: Vec<Frame>,
 
     /// The translation of the whole skeleton along the Z axis over time. It is only present in
-    /// FRM v1.1.
-    ///
-    /// There is one translation value for each frame of the animation.
+    /// FRM v1.1. There is one translation value for each frame of the animation.
     pub pos_z: Vec<f32>,
 }
 
