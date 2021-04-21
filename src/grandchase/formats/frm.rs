@@ -5,6 +5,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 const NEW_VERSION_HEADER: &str = "Frm Ver 1.1\0";
 
 /// Represents an FRM file. The FRM format stores keyframe animation data.
+#[derive(Debug, PartialEq)]
 pub struct Frm {
     /// The version of the FRM.
     pub version: FrmVersion,
@@ -29,11 +30,13 @@ impl Frm {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut reader = Cursor::new(bytes);
 
-        let mut header = [0 as u8; NEW_VERSION_HEADER.len()];
+        let mut header = [0; NEW_VERSION_HEADER.len()];
         reader.read_exact(&mut header)?;
 
         let frm = if header != NEW_VERSION_HEADER.as_bytes() {
             let mut frm = Self::new(FrmVersion::V1_0);
+
+            reader.seek(SeekFrom::Start(0))?;
 
             let (num_frames, num_bones) = (reader.read_u8()?, reader.read_u8()?);
             for _ in 0..num_frames {
@@ -44,8 +47,6 @@ impl Frm {
             frm
         } else {
             let mut frm = Self::new(FrmVersion::V1_1);
-
-            reader.seek(SeekFrom::Start(0))?;
 
             let (num_frames, num_bones) = (reader.read_u16::<LE>()?, reader.read_u16::<LE>()?);
             for _ in 0..num_frames {
@@ -66,17 +67,17 @@ impl Frm {
 
         match self.version {
             FrmVersion::V1_0 => {
-                bytes.write(NEW_VERSION_HEADER.as_bytes())?;
-                bytes.write_u16::<LE>(self.frames.len() as u16)?;
-                bytes.write_u16::<LE>(self.num_bones() as u16)?;
+                bytes.write_u8(self.frames.len() as u8)?;
+                bytes.write_u8(self.num_bones() as u8)?;
 
                 for frame in &self.frames {
                     frame.into_bytes(&mut bytes)?;
                 }
             }
             FrmVersion::V1_1 => {
-                bytes.write_u8(self.frames.len() as u8)?;
-                bytes.write_u8(self.num_bones() as u8)?;
+                bytes.write(NEW_VERSION_HEADER.as_bytes())?;
+                bytes.write_u16::<LE>(self.frames.len() as u16)?;
+                bytes.write_u16::<LE>(self.num_bones() as u16)?;
 
                 for frame in &self.frames {
                     frame.into_bytes(&mut bytes)?;
@@ -100,6 +101,7 @@ impl Frm {
 }
 
 /// Represents an animation keyframe.
+#[derive(Debug, PartialEq)]
 pub struct Frame {
     /// Unused field. It's defaulted to `0`.
     option: u8,
@@ -132,7 +134,7 @@ impl Frame {
         frame.pos_y = reader.read_f32::<LE>()?;
 
         for _ in 0..num_bones {
-            let mut bone = [[0. as f32; 4]; 4];
+            let mut bone = [[0.; 4]; 4];
             for row in bone.iter_mut() {
                 reader.read_f32_into::<LE>(row)?;
             }
@@ -160,7 +162,121 @@ impl Frame {
 }
 
 /// Determines the binary format of the FRM file.
+#[derive(Debug, PartialEq, Eq)]
 pub enum FrmVersion {
     V1_0,
     V1_1,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_v1_0() {
+        let (expected, bytes) = data_v1_0();
+        let actual = Frm::from_bytes(&bytes).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn write_v1_0() {
+        let (frm, expected) = data_v1_0();
+        let actual = frm.into_bytes().unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn read_v1_1() {
+        let (expected, bytes) = data_v1_1();
+        let actual = Frm::from_bytes(&bytes).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn write_v1_1() {
+        let (frm, expected) = data_v1_1();
+        let actual = frm.into_bytes().unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    fn data_v1_0() -> (Frm, &'static [u8]) {
+        let frm = Frm {
+            version: FrmVersion::V1_0,
+            frames: vec![
+                Frame {
+                    option: 0,
+                    plus_x: 1.,
+                    pos_y: -1.,
+                    bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
+                },
+                Frame {
+                    option: 0,
+                    plus_x: -1.,
+                    pos_y: 1.,
+                    bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
+                },
+            ],
+            pos_z: Vec::new(),
+        };
+
+        const DATA: [u8; 148] = [
+            0x02, 0x01, 0x00, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0xBF, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xBF, 0x00, 0x00, 0x80, 0x3F,
+            0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00,
+            0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F,
+            0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00,
+            0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F,
+            0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F,
+        ];
+
+        (frm, &DATA)
+    }
+
+    fn data_v1_1() -> (Frm, &'static [u8]) {
+        let frm = Frm {
+            version: FrmVersion::V1_1,
+            frames: vec![
+                Frame {
+                    option: 0,
+                    plus_x: 1.,
+                    pos_y: -1.,
+                    bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
+                },
+                Frame {
+                    option: 0,
+                    plus_x: -1.,
+                    pos_y: 1.,
+                    bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
+                },
+            ],
+            pos_z: vec![0., 1.],
+        };
+
+        const DATA: [u8; 170] = [
+            0x46, 0x72, 0x6D, 0x20, 0x56, 0x65, 0x72, 0x20, 0x31, 0x2E, 0x31, 0x00, 0x02, 0x00,
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0xBF, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xBF, 0x00, 0x00, 0x80, 0x3F,
+            0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00,
+            0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F,
+            0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00,
+            0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F,
+            0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x80, 0x3F,
+        ];
+
+        (frm, &DATA)
+    }
 }
