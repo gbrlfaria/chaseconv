@@ -92,10 +92,9 @@ impl Frm {
     }
 
     pub fn num_bones(&self) -> usize {
-        if self.frames.is_empty() {
-            0
-        } else {
-            self.frames[0].bones.len()
+        match self.frames.first() {
+            Some(frame) => frame.bones.len(),
+            None => 0,
         }
     }
 }
