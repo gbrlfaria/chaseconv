@@ -2,7 +2,7 @@ use std::io::{Cursor, Read, Result, Seek, SeekFrom, Write};
 
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 
-const NEW_VERSION_HEADER: &str = "Frm Ver 1.1\0";
+const VERSION_HEADER: &str = "Frm Ver 1.1\0";
 
 /// Represents an FRM file. The FRM format stores keyframe animation data.
 #[derive(Debug, PartialEq)]
@@ -30,15 +30,16 @@ impl Frm {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut reader = Cursor::new(bytes);
 
-        let mut header = [0; NEW_VERSION_HEADER.len()];
+        let mut header = [0; VERSION_HEADER.len()];
         reader.read_exact(&mut header)?;
 
-        let frm = if header != NEW_VERSION_HEADER.as_bytes() {
+        let frm = if header != VERSION_HEADER.as_bytes() {
             let mut frm = Self::new(FrmVersion::V1_0);
 
             reader.seek(SeekFrom::Start(0))?;
 
-            let (num_frames, num_bones) = (reader.read_u8()?, reader.read_u8()?);
+            let num_frames = reader.read_u8()?;
+            let num_bones = reader.read_u8()?;
             for _ in 0..num_frames {
                 frm.frames
                     .push(Frame::from_reader(&mut reader, num_bones as u16)?);
@@ -48,7 +49,8 @@ impl Frm {
         } else {
             let mut frm = Self::new(FrmVersion::V1_1);
 
-            let (num_frames, num_bones) = (reader.read_u16::<LE>()?, reader.read_u16::<LE>()?);
+            let num_frames = reader.read_u16::<LE>()?;
+            let num_bones = reader.read_u16::<LE>()?;
             for _ in 0..num_frames {
                 frm.frames.push(Frame::from_reader(&mut reader, num_bones)?);
             }
@@ -75,7 +77,7 @@ impl Frm {
                 }
             }
             FrmVersion::V1_1 => {
-                bytes.write(NEW_VERSION_HEADER.as_bytes())?;
+                bytes.write(VERSION_HEADER.as_bytes())?;
                 bytes.write_u16::<LE>(self.frames.len() as u16)?;
                 bytes.write_u16::<LE>(self.num_bones() as u16)?;
 
