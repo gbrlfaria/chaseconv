@@ -68,7 +68,7 @@ impl P3m {
         Ok(Self::new())
     }
 
-    fn to_bytes(&self) -> Result<Vec<u8>> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
         let mut bytes = Vec::new();
 
         util::write_string(&mut bytes, &self.header, HEADER.len())?;
