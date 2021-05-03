@@ -4,7 +4,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 
 const VERSION_HEADER: &str = "Frm Ver 1.1\0";
 
-/// Represents an FRM file. The FRM format stores keyframe animation data.
+/// Represents an FRM file. The FRM format stores keyframe animation data from GrandChase.
 #[derive(Debug, PartialEq)]
 pub struct Frm {
     /// The version of the FRM.
@@ -64,7 +64,7 @@ impl Frm {
         Ok(frm)
     }
 
-    pub fn into_bytes(&self) -> Result<Vec<u8>> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
         let mut bytes = Vec::new();
 
         match self.version {
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn write_v1_0() {
         let (frm, expected) = data_v1_0();
-        let actual = frm.into_bytes().unwrap();
+        let actual = frm.to_bytes().unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn write_v1_1() {
         let (frm, expected) = data_v1_1();
-        let actual = frm.into_bytes().unwrap();
+        let actual = frm.to_bytes().unwrap();
 
         assert_eq!(expected, actual);
     }
