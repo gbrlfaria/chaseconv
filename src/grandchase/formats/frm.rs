@@ -12,9 +12,6 @@ pub struct Frm {
     pub version: FrmVersion,
     /// The frames of the animation over time. The frames are supposed to be played at 55 FPS.
     pub frames: Vec<Frame>,
-    /// The z-coordinate of the root position of the skeleton over time, relative to the origin.
-    /// It is only present in FRM v1.1. There is one coordinate for each frame of the animation.
-    pub pos_z: Vec<f32>,
 }
 
 impl Frm {
@@ -22,7 +19,6 @@ impl Frm {
         Self {
             version,
             frames: Vec::new(),
-            pos_z: Vec::new(),
         }
     }
 
@@ -53,8 +49,8 @@ impl Frm {
             for _ in 0..num_frames {
                 frm.frames.push(Frame::from_reader(&mut reader, num_bones)?);
             }
-            for _ in 0..num_frames {
-                frm.pos_z.push(reader.read_f32::<LE>()?);
+            for frame in &mut frm.frames {
+                frame.pos_z = reader.read_f32::<LE>()?;
             }
 
             frm
@@ -83,8 +79,8 @@ impl Frm {
                 for frame in &self.frames {
                     frame.into_bytes(&mut bytes)?;
                 }
-                for &z in &self.pos_z {
-                    bytes.write_f32::<LE>(z)?;
+                for frame in &self.frames {
+                    bytes.write_f32::<LE>(frame.pos_z)?;
                 }
             }
         }
@@ -103,14 +99,17 @@ impl Frm {
 /// Represents an animation keyframe.
 #[derive(Debug, PartialEq)]
 pub struct Frame {
-    /// Unused field. It's defaulted to `0`.
+    /// Unused field. It is defaulted to `0`.
     option: u8,
-    /// The x-coordinate of the root position of the skeleton for the current frame, relative to
-    /// the previous frame.
+    /// The x-coordinate of the root position of the skeleton for the current frame, **relative to
+    /// the previous frame**.
     pos_x: f32,
     /// The y-coordinate of the root position of the skeleton for the current frame, relative to
     /// the origin.
     pos_y: f32,
+    /// The z-coordinate of the root position of the skeleton for the current frame, relative to
+    /// the origin. It is only present in FRM v1.1 and is zero otherwise.
+    pos_z: f32,
     /// The bone matrices of all bones for the current frame. Originally, they only contain
     /// rotation.
     bones: Vec<[[f32; 4]; 4]>,
@@ -122,6 +121,7 @@ impl Frame {
             option: 0,
             pos_x: 0.,
             pos_y: 0.,
+            pos_z: 0.,
             bones: Vec::new(),
         }
     }
@@ -212,16 +212,17 @@ mod tests {
                     option: 0,
                     pos_x: 1.,
                     pos_y: -1.,
+                    pos_z: 0.,
                     bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
                 },
                 Frame {
                     option: 0,
                     pos_x: -1.,
                     pos_y: 1.,
+                    pos_z: 0.,
                     bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
                 },
             ],
-            pos_z: Vec::new(),
         };
 
         const DATA: [u8; 148] = [
@@ -249,16 +250,17 @@ mod tests {
                     option: 0,
                     pos_x: 1.,
                     pos_y: -1.,
+                    pos_z: 0.,
                     bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
                 },
                 Frame {
                     option: 0,
                     pos_x: -1.,
                     pos_y: 1.,
+                    pos_z: 1.,
                     bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
                 },
             ],
-            pos_z: vec![0., 1.],
         };
 
         const DATA: [u8; 170] = [
