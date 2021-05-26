@@ -4,7 +4,6 @@ use crate::{asset::Asset, scene::Scene};
 pub trait Importer {
     /// Imports an asset file into a scene.
     fn import(&self, asset: &Asset, scene: &mut Scene) -> Result<(), ConversionError>;
-
     /// Returns the file extensions supported by the importer. These extensions are used to
     /// select the appropriate importer given an asset file.
     fn extensions(&self) -> &[&str];

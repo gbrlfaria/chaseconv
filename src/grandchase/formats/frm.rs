@@ -7,12 +7,10 @@ const VERSION_HEADER: &str = "Frm Ver 1.1\0";
 /// Represents an FRM file. The FRM format stores keyframe animation data from GrandChase.
 #[derive(Debug, PartialEq)]
 pub struct Frm {
-    /// The version of the FRM.
+    /// The version header of the FRM file.
     pub version: FrmVersion,
-
     /// The frames of the animation over time. The frames are supposed to be played at 55 FPS.
     pub frames: Vec<Frame>,
-
     /// The translation of the entire skeleton along the Z axis over time. It is only present in
     /// FRM v1.1. There is one translation value for each frame of the animation.
     pub pos_z: Vec<f32>,
@@ -106,14 +104,12 @@ impl Frm {
 pub struct Frame {
     /// Unused field. It's defaulted to `0`.
     option: u8,
-
     /// The translation of the entire skeleton over the x axis for the current frame.
-    plus_x: f32,
-
+    pos_x: f32,
     /// The translation of the entire skeleton over the y axis for the current frame.
     pos_y: f32,
-
-    /// The rotation matrices of all bones for the current frame.
+    /// The bone matrices of all bones for the current frame. Originally, they only contain
+    /// rotation.
     bones: Vec<[[f32; 4]; 4]>,
 }
 
@@ -121,7 +117,7 @@ impl Frame {
     pub fn new() -> Self {
         Self {
             option: 0,
-            plus_x: 0.,
+            pos_x: 0.,
             pos_y: 0.,
             bones: Vec::new(),
         }
@@ -131,7 +127,7 @@ impl Frame {
         let mut frame = Self::new();
 
         frame.option = reader.read_u8()?;
-        frame.plus_x = reader.read_f32::<LE>()?;
+        frame.pos_x = reader.read_f32::<LE>()?;
         frame.pos_y = reader.read_f32::<LE>()?;
 
         for _ in 0..num_bones {
@@ -147,7 +143,7 @@ impl Frame {
 
     pub fn into_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
         bytes.write_u8(self.option)?;
-        bytes.write_f32::<LE>(self.plus_x)?;
+        bytes.write_f32::<LE>(self.pos_x)?;
         bytes.write_f32::<LE>(self.pos_y)?;
 
         for bone_matrix in &self.bones {
@@ -162,7 +158,7 @@ impl Frame {
     }
 }
 
-/// Determines the binary format of the FRM file.
+/// Specifies the version and format of the FRM file.
 #[derive(Debug, PartialEq, Eq)]
 pub enum FrmVersion {
     V1_0,
@@ -211,13 +207,13 @@ mod tests {
             frames: vec![
                 Frame {
                     option: 0,
-                    plus_x: 1.,
+                    pos_x: 1.,
                     pos_y: -1.,
                     bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
                 },
                 Frame {
                     option: 0,
-                    plus_x: -1.,
+                    pos_x: -1.,
                     pos_y: 1.,
                     bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
                 },
@@ -248,13 +244,13 @@ mod tests {
             frames: vec![
                 Frame {
                     option: 0,
-                    plus_x: 1.,
+                    pos_x: 1.,
                     pos_y: -1.,
                     bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
                 },
                 Frame {
                     option: 0,
-                    plus_x: -1.,
+                    pos_x: -1.,
                     pos_y: 1.,
                     bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
                 },
