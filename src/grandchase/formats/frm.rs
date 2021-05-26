@@ -100,19 +100,19 @@ impl Frm {
 #[derive(Debug, PartialEq)]
 pub struct Frame {
     /// Unused field. It is defaulted to `0`.
-    option: u8,
+    pub option: u8,
     /// The x-coordinate of the root position of the skeleton for the current frame, **relative to
     /// the previous frame**.
-    pos_x: f32,
+    pub pos_x: f32,
     /// The y-coordinate of the root position of the skeleton for the current frame, relative to
     /// the origin.
-    pos_y: f32,
+    pub pos_y: f32,
     /// The z-coordinate of the root position of the skeleton for the current frame, relative to
     /// the origin. It is only present in FRM v1.1 and is zero otherwise.
-    pos_z: f32,
+    pub pos_z: f32,
     /// The bone matrices of all bones for the current frame. Originally, they only contain
     /// rotation.
-    bones: Vec<[[f32; 4]; 4]>,
+    pub bones: Vec<[[f32; 4]; 4]>,
 }
 
 impl Frame {

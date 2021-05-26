@@ -119,9 +119,9 @@ impl P3m {
 #[derive(Debug, PartialEq)]
 pub struct PositionBone {
     /// The translation applied to the children bones.
-    position: [f32; 3],
+    pub position: [f32; 3],
     /// The angle bones to which the translation applies.
-    children: Vec<u8>,
+    pub children: Vec<u8>,
 }
 
 impl PositionBone {
@@ -176,11 +176,11 @@ impl PositionBone {
 #[derive(Debug, PartialEq)]
 pub struct AngleBone {
     /// This field is unused and is always zero.
-    position: [f32; 3],
+    pub position: [f32; 3],
     /// This field is unused and is always zero.
-    scale: f32,
+    pub scale: f32,
     /// The position bones to which the rotations apply.
-    children: Vec<u8>,
+    pub children: Vec<u8>,
 }
 
 impl AngleBone {
@@ -237,15 +237,15 @@ impl AngleBone {
 #[derive(Debug, PartialEq)]
 pub struct SkinVertex {
     /// Vertex position with the corresponding bone matrix applied.
-    position: [f32; 3],
+    pub position: [f32; 3],
     /// Bone influence weight. In practice, it is unused and is always one.
-    weight: f32,
+    pub weight: f32,
     /// Index of the angle bone that influences the vertex.
-    bone_index: u8,
+    pub bone_index: u8,
     /// Vertex normal vector.
-    normal: [f32; 3],
+    pub normal: [f32; 3],
     /// UV texture coordinates.
-    uv: [f32; 2],
+    pub uv: [f32; 2],
 }
 
 impl SkinVertex {
@@ -301,11 +301,11 @@ impl SkinVertex {
 #[derive(Debug, PartialEq)]
 pub struct MeshVertex {
     // Vertex position without bone influence.
-    position: [f32; 3],
+    pub position: [f32; 3],
     /// Vertex normal vector.
-    normal: [f32; 3],
+    pub normal: [f32; 3],
     /// UV texture coordinates.
-    uv: [f32; 2],
+    pub uv: [f32; 2],
 }
 
 impl MeshVertex {
