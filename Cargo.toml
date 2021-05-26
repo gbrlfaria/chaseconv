@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 byteorder = "1.4.3"
+memchr = "2.4.0"

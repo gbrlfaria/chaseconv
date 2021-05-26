@@ -30,7 +30,8 @@ pub struct P3m {
 impl P3m {
     pub fn new() -> Self {
         Self {
-            version_header: String::from(VERSION_HEADER).replace("\0", ""),
+            // Remove the null terminator.
+            version_header: String::from(&VERSION_HEADER[..VERSION_HEADER.len() - 1]),
             position_bones: Vec::new(),
             angle_bones: Vec::new(),
             texture_name: String::new(),
@@ -347,10 +348,15 @@ mod util {
 
     use byteorder::WriteBytesExt;
 
-    /// Reads a string of certain length in bytes. Null bytes are removed from the string.
+    /// Reads certain amount of bytes into a string. The returned string gets truncated at the
+    /// first null terminator in the byte sequence read, if there is any.
     pub fn read_string(reader: &mut Cursor<&[u8]>, max_len: usize) -> Result<String> {
         let mut bytes = vec![0 as u8; max_len];
         reader.read_exact(&mut bytes)?;
+
+        // Truncate the string starting at the null terminator.
+        let len = memchr::memchr(0, &bytes).unwrap_or(max_len);
+        bytes.drain(len..);
 
         match String::from_utf8(bytes) {
             Ok(string) => Ok(string.replace("\0", "")),
@@ -394,7 +400,7 @@ mod util {
             let mut reader = Cursor::new(&bytes[..]);
 
             assert_eq!(
-                String::from("Hello, world"),
+                String::from("Hello"),
                 read_string(&mut reader, bytes.len()).unwrap()
             );
             assert!(reader.position() == bytes.len() as u64);
