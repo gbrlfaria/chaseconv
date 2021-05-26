@@ -13,7 +13,7 @@ pub struct Frm {
     /// The frames of the animation over time. The frames are supposed to be played at 55 FPS.
     pub frames: Vec<Frame>,
     /// The z-coordinate of the root position of the skeleton over time, relative to the origin.
-    /// It is only present in FRM v1.1. There is one translation value for each frame of the animation.
+    /// It is only present in FRM v1.1. There is one coordinate for each frame of the animation.
     pub pos_z: Vec<f32>,
 }
 

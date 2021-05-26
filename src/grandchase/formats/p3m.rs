@@ -15,15 +15,15 @@ pub struct P3m {
     pub version_header: String,
     /// The list of bone translations.
     pub position_bones: Vec<PositionBone>,
-    /// The list of bone rotations. These are the actual bones/nodes of the skeleton.
+    /// The list of bone rotations. Together with position bones, they compose the bone hierarchy.
     pub angle_bones: Vec<AngleBone>,
     /// The name of the texture applied to the mesh. This field is unused and is always empty.
     pub texture_name: String,
-    /// The index buffer of the mesh. It is structured as a list of counter-clockwise triangles.
+    /// The list of faces of the polygon mesh. It is comprised of clockwise winded triangles.
     pub faces: Vec<[u16; 3]>,
-    /// The mesh vertices with skinning data.
+    /// The polygon mesh vertices with skinning data.
     pub skin_vertices: Vec<SkinVertex>,
-    /// The unskinned mesh vertices. In practice, this field is unused.
+    /// The unskinned polygon mesh vertices. In practice, this field is unused.
     pub mesh_vertices: Vec<MeshVertex>,
 }
 
