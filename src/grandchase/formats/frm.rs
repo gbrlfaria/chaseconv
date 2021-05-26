@@ -5,14 +5,15 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 const VERSION_HEADER: &str = "Frm Ver 1.1\0";
 
 /// Represents an FRM file. The FRM format stores keyframe animation data from GrandChase.
+/// All its geometry uses Left-handed cartesian coordinates (Y-up).
 #[derive(Debug, PartialEq)]
 pub struct Frm {
     /// The version header of the FRM file.
     pub version: FrmVersion,
     /// The frames of the animation over time. The frames are supposed to be played at 55 FPS.
     pub frames: Vec<Frame>,
-    /// The translation of the entire skeleton along the Z axis over time. It is only present in
-    /// FRM v1.1. There is one translation value for each frame of the animation.
+    /// The z-coordinate of the root position of the skeleton over time, relative to the origin.
+    /// It is only present in FRM v1.1. There is one translation value for each frame of the animation.
     pub pos_z: Vec<f32>,
 }
 
@@ -104,9 +105,11 @@ impl Frm {
 pub struct Frame {
     /// Unused field. It's defaulted to `0`.
     option: u8,
-    /// The translation of the entire skeleton over the x axis for the current frame.
+    /// The x-coordinate of the root position of the skeleton for the current frame, relative to
+    /// the previous frame.
     pos_x: f32,
-    /// The translation of the entire skeleton over the y axis for the current frame.
+    /// The y-coordinate of the root position of the skeleton for the current frame, relative to
+    /// the origin.
     pos_y: f32,
     /// The bone matrices of all bones for the current frame. Originally, they only contain
     /// rotation.
