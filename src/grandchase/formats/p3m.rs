@@ -347,7 +347,7 @@ mod util {
 
     use byteorder::WriteBytesExt;
 
-    /// Reads a string of certain length in bytes.
+    /// Reads a string of certain length in bytes. Null bytes are removed from the string.
     pub fn read_string(reader: &mut Cursor<&[u8]>, max_len: usize) -> Result<String> {
         let mut bytes = vec![0 as u8; max_len];
         reader.read_exact(&mut bytes)?;
@@ -370,6 +370,68 @@ mod util {
         }
 
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn read_str_exact() {
+            let bytes = b"Hi there!\x00";
+            let mut reader = Cursor::new(&bytes[..]);
+
+            assert_eq!(
+                String::from("Hi there!"),
+                read_string(&mut reader, bytes.len()).unwrap()
+            );
+            assert!(reader.position() == bytes.len() as u64);
+        }
+
+        #[test]
+        fn read_str_shorter() {
+            let bytes = b"Hello\x00, world";
+            let mut reader = Cursor::new(&bytes[..]);
+
+            assert_eq!(
+                String::from("Hello, world"),
+                read_string(&mut reader, bytes.len()).unwrap()
+            );
+            assert!(reader.position() == bytes.len() as u64);
+        }
+
+        #[test]
+        fn read_str_invalid() {
+            let bytes = b"\xf8\xa1\xa1\xa1\xa1";
+            let mut reader = Cursor::new(&bytes[..]);
+
+            assert!(read_string(&mut reader, bytes.len()).is_err());
+            assert!(reader.position() == bytes.len() as u64);
+        }
+
+        #[test]
+        fn write_str_shorter() {
+            let mut bytes = Vec::new();
+            write_string(&mut bytes, "Hello", 8).unwrap();
+
+            assert_eq!(b"Hello\x00\x00\x00".to_vec(), bytes);
+        }
+
+        #[test]
+        fn write_str_exact() {
+            let mut bytes = Vec::new();
+            write_string(&mut bytes, "Hi!", 3).unwrap();
+
+            assert_eq!(b"Hi!".to_vec(), bytes);
+        }
+
+        #[test]
+        fn write_str_longer() {
+            let mut bytes = Vec::new();
+            write_string(&mut bytes, "Hi there!", 2).unwrap();
+
+            assert_eq!(b"Hi".to_vec(), bytes);
+        }
     }
 }
 
