@@ -5,7 +5,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 const VERSION_HEADER: &str = "Frm Ver 1.1\0";
 
 /// Represents an FRM file. The FRM format stores keyframe animation data from GrandChase.
-/// All its geometry uses Left-handed cartesian coordinates (Y-up).
+/// It uses the left-handed coordinate system (Y-up).
 #[derive(Debug, PartialEq)]
 pub struct Frm {
     /// The version header of the FRM file.

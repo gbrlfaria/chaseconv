@@ -8,7 +8,7 @@ const INVALID_BONE_INDEX: u8 = 255;
 const TEXTURE_NAME_LEN: usize = 260;
 
 /// Represents a P3M file. The P3M format stores geometry data from GrandChase, including mesh,
-/// bone hierarchy, and skinning. All its geometry uses Left-handed cartesian coordinates (Y-up).
+/// bone hierarchy, and skinning. It uses the left-handed coordinate system (Y-up).
 #[derive(Debug, PartialEq)]
 pub struct P3m {
     /// The default version header for the P3M format.
