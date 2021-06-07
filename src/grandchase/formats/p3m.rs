@@ -360,7 +360,7 @@ mod util {
         bytes.drain(len..);
 
         match String::from_utf8(bytes) {
-            Ok(string) => Ok(string.replace("\0", "")),
+            Ok(string) => Ok(string),
             Err(error) => Err(Error::new(ErrorKind::Other, error.to_string())),
         }
     }
