@@ -121,7 +121,7 @@ impl P3m {
 pub struct PositionBone {
     /// The translation applied to the children bones.
     pub position: [f32; 3],
-    /// The angle bones to which the translation applies.
+    /// The angle bones to which the translation applies. Up to ten children are supported.
     pub children: Vec<u8>,
 }
 
@@ -171,7 +171,8 @@ impl PositionBone {
     }
 }
 
-/// A rotation modifier that applies to a set of children position bones.
+/// A rotation modifier that applies to a set of children position bones. All rotations are zeroed
+/// by default.
 /// These are the actual bones of the skeleton and what skin vertices and keyframe bone indices
 /// refer to.
 #[derive(Debug, PartialEq)]
@@ -180,7 +181,7 @@ pub struct AngleBone {
     pub position: [f32; 3],
     /// This field is unused and is always zero.
     pub scale: f32,
-    /// The position bones to which the rotations apply.
+    /// The position bones to which the rotations apply. Up to 10 children are supported.
     pub children: Vec<u8>,
 }
 
