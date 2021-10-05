@@ -1,4 +1,7 @@
-use crate::{asset::Asset, scene::Scene};
+use self::{asset::Asset, scene::Scene};
+
+mod asset;
+mod scene;
 
 /// Defines a type that can import asset files into a scene.
 #[allow(unused_variables)]
