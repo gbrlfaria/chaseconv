@@ -38,7 +38,6 @@ pub struct Converter {
 }
 
 impl Converter {
-    /// Generic helper function that creates a new converter.
     fn new(
         format: &'static str,
         importer: impl Importer + 'static,
