@@ -13,7 +13,7 @@ pub trait Importer {
     fn postprocess(&self, scene: &mut Scene) {}
     /// Returns the file extensions supported by the importer. These extensions are used to
     /// select the appropriate importer given an asset file.
-    /// 
+    ///
     /// The extension should not include the period (e.g "zip", not ".zip").
     fn extensions(&self) -> &[&str];
 }
