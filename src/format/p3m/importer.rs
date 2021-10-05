@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 use crate::conversion::{Asset, ConversionError, Importer, Mesh, Scene};
 
 use super::internal::P3m;
