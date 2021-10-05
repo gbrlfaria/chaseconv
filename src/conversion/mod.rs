@@ -1,4 +1,7 @@
-pub use self::{asset::Asset, scene::Scene};
+pub use self::{
+    asset::Asset,
+    scene::{Mesh, Scene},
+};
 
 mod asset;
 mod scene;
@@ -29,7 +32,9 @@ pub trait Exporter {
 }
 
 /// The error type for conversion operations of the [`Importer`] and [`Exporter`] traits.
-pub enum ConversionError {}
+pub enum ConversionError {
+    FailedDeserialization,
+}
 
 /// The converter for certain asset format.
 pub struct Converter {

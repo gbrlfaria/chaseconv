@@ -5,17 +5,17 @@ use glam::{Mat4, Vec2, Vec3A};
 ///
 /// The geometry should use the left-handed Y-up coordinate system.
 pub struct Scene {
-    meshes: Vec<Mesh>,
-    skeleton: Vec<Joint>,
-    animations: Vec<Animation>,
+    pub meshes: Vec<Mesh>,
+    pub skeleton: Vec<Joint>,
+    pub animations: Vec<Animation>,
 }
 
 /// Represents the geometry of a mesh.
 pub struct Mesh {
     /// The list of vertices (vertex buffer) of the geometry.
-    vertices: Vec<Vertex>,
-    /// The list of indices (index buffer) of the geometry, which determines the faces of the mesh.
-    indices: Vec<usize>,
+    pub vertices: Vec<Vertex>,
+    /// The list of indexes (index buffer) of the geometry, which determines the faces of the mesh.
+    pub indexes: Vec<usize>,
 }
 
 /// Represents a joint of the [`Scene`] skeleton. It only supports translation.
