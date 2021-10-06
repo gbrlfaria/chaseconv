@@ -1,5 +1,6 @@
-use std::io::{Cursor, Read, Result, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
+use anyhow::Result;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 
 const VERSION_HEADER: &str = "Frm Ver 1.1\0";

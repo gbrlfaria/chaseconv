@@ -21,39 +21,50 @@ pub struct Mesh {
 /// Represents a joint of the [`Scene`] skeleton. It only supports translation.
 pub struct Joint {
     /// The translation of the joint, relative to its parent.
-    translation: Vec3A,
-    /// The list of children of the joint. Each element of the list represents
-    /// the index of a children in the [`Scene`] skeleton.
+    pub translation: Vec3A,
+    /// The index of the parent of the joint. The index refers to the [`Scene`] skeleton.
+    pub parent: Option<usize>,
+    /// The indexes of the children of the joint. The indexes refer to the [`Scene`] skeleton.
     /// A joint should have a maximum of 10 children.
-    children: Vec<usize>,
+    pub children: Vec<usize>,
+}
+
+impl Joint {
+    pub fn new() -> Self {
+        Self {
+            translation: Vec3A::new(0., 0., 0.),
+            parent: None,
+            children: Vec::new(),
+        }
+    }
 }
 
 /// Represents a keyframe animation sequence.
 pub struct Animation {
-    frames: Vec<Keyframe>,
+    pub frames: Vec<Keyframe>,
 }
 
 /// Represents a skinned vertex of a mesh.
 pub struct Vertex {
     /// The position of the vertex, relative to the origin.
-    position: Vec3A,
+    pub position: Vec3A,
     /// The normal vector of the vertex.
-    normal: Vec3A,
+    pub normal: Vec3A,
     /// The UV-mapping texture coordinates of the vertex.
-    uv: Vec2,
+    pub uv: Vec2,
     /// The index of the single influencing joint in the [`Scene`] skeleton.
     /// The joint exerts 100% influence over the vertex.
-    joint: usize,
+    pub joint: usize,
 }
 
 /// Represents a single keyframe of a animation sequence.
 pub struct Keyframe {
     /// The duration, in milliseconds, of the frame.
-    duration: u64,
+    pub duration: u64,
     /// The translation of applied to the whole skeleton.
-    root_translation: Vec3A,
+    pub root_translation: Vec3A,
     /// The list transform matrices for each joint at the current frame.
     /// Each matrix in the list should correspond to the joint with same
     /// index in the [`Scene`] skeleton.
-    joint_transforms: Vec<Mat4>,
+    pub joint_transforms: Vec<Mat4>,
 }

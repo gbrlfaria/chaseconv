@@ -1,5 +1,6 @@
-use std::io::{Cursor, Result, Seek, SeekFrom};
+use std::io::{Cursor, Seek, SeekFrom};
 
+use anyhow::Result;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 
 // The typo is intentional and follows the string used in the official assets.
@@ -119,7 +120,7 @@ impl P3m {
 /// A translation modifier that applies to a set of children angle bones.
 #[derive(Debug, PartialEq)]
 pub struct PositionBone {
-    /// The translation applied to the children bones.
+    /// The translation applied to the children, relative to the parent bone.
     pub position: [f32; 3],
     /// The angle bones to which the translation applies. Up to ten children are supported.
     pub children: Vec<u8>,
@@ -139,6 +140,7 @@ impl PositionBone {
         reader.read_f32_into::<LE>(&mut position_bone.position)?;
 
         for _ in 0..10 {
+            // TODO: CHANGE TO BREAK ON FIRST.
             let child = reader.read_u8()?;
             if child != INVALID_BONE_INDEX {
                 position_bone.children.push(child);

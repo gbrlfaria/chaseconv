@@ -1,6 +1,8 @@
+use anyhow::Result;
+
 pub use self::{
     asset::Asset,
-    scene::{Mesh, Scene},
+    scene::{Animation, Joint, Mesh, Scene},
 };
 
 mod asset;
@@ -10,7 +12,7 @@ mod scene;
 #[allow(unused_variables)]
 pub trait Importer {
     /// Imports an asset file into a scene.
-    fn import(&self, asset: &Asset, scene: &mut Scene) -> Result<(), ConversionError>;
+    fn import(&self, asset: &Asset, scene: &mut Scene) -> Result<()>;
     /// Postprocesses a scene after all its assets are imported. It's usually used to
     /// transform the scene geometry into the appropriate coordinate system.
     fn postprocess(&self, scene: &mut Scene) {}
@@ -25,15 +27,10 @@ pub trait Importer {
 #[allow(unused_variables)]
 pub trait Exporter {
     /// Exports a scene into one or more asset files.
-    fn export(&self, scene: &Scene) -> Result<Vec<Asset>, ConversionError>;
+    fn export(&self, scene: &Scene) -> Result<Vec<Asset>>;
     /// Preprocesses a scene before it is exported. It's usually used to
     /// transform the scene geometry into the appropriate coordinate system.
     fn preprocess(&self, scene: &mut Scene) {}
-}
-
-/// The error type for conversion operations of the [`Importer`] and [`Exporter`] traits.
-pub enum ConversionError {
-    FailedDeserialization,
 }
 
 /// The converter for certain asset format.
