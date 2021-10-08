@@ -55,3 +55,76 @@ fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) ->
 
     joints
 }
+
+#[cfg(test)]
+mod tests {
+    use glam::Vec3A;
+
+    use super::*;
+
+    #[test]
+    fn joints() {
+        let position_bones = vec![
+            PositionBone {
+                position: [1.; 3],
+                children: vec![0, 1],
+            },
+            PositionBone {
+                position: [2.; 3],
+                children: vec![2],
+            },
+            PositionBone {
+                position: [3.; 3],
+                children: vec![3],
+            },
+        ];
+        let angle_bones = vec![
+            AngleBone {
+                position: [0.; 3],
+                scale: 0.,
+                children: vec![1],
+            },
+            AngleBone {
+                position: [0.; 3],
+                scale: 0.,
+                children: Vec::new(),
+            },
+            AngleBone {
+                position: [0.; 3],
+                scale: 0.,
+                children: vec![2],
+            },
+            AngleBone {
+                position: [0.; 3],
+                scale: 0.,
+                children: Vec::new(),
+            },
+        ];
+
+        let actual = super::convert_joints(&position_bones, &angle_bones);
+        let expected = vec![
+            Joint {
+                translation: Vec3A::new(1., 1., 1.),
+                parent: None,
+                children: vec![2],
+            },
+            Joint {
+                translation: Vec3A::new(1., 1., 1.),
+                parent: None,
+                children: Vec::new(),
+            },
+            Joint {
+                translation: Vec3A::new(2., 2., 2.),
+                parent: Some(0),
+                children: vec![3],
+            },
+            Joint {
+                translation: Vec3A::new(3., 3., 3.),
+                parent: Some(2),
+                children: Vec::new(),
+            },
+        ];
+
+        assert_eq!(expected, actual);
+    }
+}

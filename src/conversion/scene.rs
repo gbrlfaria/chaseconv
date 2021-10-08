@@ -19,6 +19,7 @@ pub struct Mesh {
 }
 
 /// Represents a joint of the [`Scene`] skeleton. It only supports translation.
+#[derive(Debug, PartialEq)]
 pub struct Joint {
     /// The translation of the joint, relative to its parent.
     pub translation: Vec3A,
