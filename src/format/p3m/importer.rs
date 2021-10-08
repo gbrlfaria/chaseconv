@@ -13,7 +13,9 @@ impl Importer for P3mImporter {
             .context("Failed to deserialize the bytes of the .p3m asset")?;
 
         scene.skeleton = convert_joints(&p3m.position_bones, &p3m.angle_bones);
-        scene.meshes.push(convert_mesh(p3m, asset, scene));
+        scene
+            .meshes
+            .push(convert_mesh(p3m, asset.name().to_string(), scene));
 
         Ok(())
     }
@@ -58,9 +60,9 @@ fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) ->
     joints
 }
 
-fn convert_mesh(p3m: P3m, asset: &Asset, scene: &Scene) -> Mesh {
+fn convert_mesh(p3m: P3m, name: String, scene: &Scene) -> Mesh {
     Mesh {
-        name: asset.name().to_string(),
+        name,
         vertices: convert_vertices(&p3m.skin_vertices, p3m.position_bones.len(), scene),
         indexes: p3m
             .faces
@@ -72,13 +74,13 @@ fn convert_mesh(p3m: P3m, asset: &Asset, scene: &Scene) -> Mesh {
 
 fn convert_vertices(
     skin_vertices: &[SkinVertex],
-    num_pos_bones: usize,
+    num_position_bones: usize,
     scene: &Scene,
 ) -> Vec<Vertex> {
     skin_vertices
         .iter()
         .map(|vertex| {
-            let joint = vertex.bone_index as usize - num_pos_bones;
+            let joint = vertex.bone_index as usize - num_position_bones;
             Vertex {
                 position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
                 normal: Vec3A::from(vertex.normal).normalize_or_zero(),
@@ -94,6 +96,8 @@ mod tests {
     use glam::Vec3A;
 
     use super::*;
+
+    // TODO: create P3M model that can be used across many test cases.
 
     #[test]
     fn joints() {
