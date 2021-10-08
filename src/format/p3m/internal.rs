@@ -20,7 +20,7 @@ pub struct P3m {
     pub angle_bones: Vec<AngleBone>,
     /// The name of the texture applied to the mesh. This field is unused and is always empty.
     pub texture_name: String,
-    /// The list of faces of the polygon mesh. It is comprised of clockwise winded triangles.
+    /// The list of faces of the polygon mesh. It's comprised of clockwise winded triangles.
     pub faces: Vec<[u16; 3]>,
     /// The polygon mesh vertices with skinning data.
     pub skin_vertices: Vec<SkinVertex>,
@@ -242,7 +242,7 @@ impl AngleBone {
 pub struct SkinVertex {
     /// Vertex position with the corresponding bone matrix applied.
     pub position: [f32; 3],
-    /// Bone influence weight. In practice, it is unused and is always one.
+    /// Bone influence weight. In practice, it's unused and is always one.
     pub weight: f32,
     /// Index of the angle bone that influences the vertex.
     pub bone_index: u8,
@@ -368,7 +368,7 @@ mod util {
     }
 
     /// Writes a string with certain length in bytes. If the string is shorter than the maximum
-    /// length allowed, the remaining bytes are filled with zero. If it is longer, it is truncated.
+    /// length allowed, the remaining bytes are filled with zero. If it's longer, it's truncated.
     pub fn write_string(bytes: &mut Vec<u8>, string: &str, max_len: usize) -> Result<()> {
         let len = usize::min(string.len(), max_len);
         bytes.write(string[0..len].as_bytes())?;

@@ -28,7 +28,7 @@ pub trait Importer {
 pub trait Exporter {
     /// Exports a scene into one or more asset files.
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>>;
-    /// Preprocesses a scene before it is exported. It's usually used to
+    /// Preprocesses a scene before it's exported. It's usually used to
     /// transform the scene geometry into the appropriate coordinate system.
     fn preprocess(&self, scene: &mut Scene) {}
 }

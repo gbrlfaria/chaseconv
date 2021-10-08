@@ -100,7 +100,7 @@ impl Frm {
 /// Represents an animation keyframe.
 #[derive(Debug, PartialEq)]
 pub struct Frame {
-    /// Unused field. It is defaulted to `0`.
+    /// Unused field. It's defaulted to `0`.
     pub option: u8,
     /// The x-coordinate of the root position of the skeleton for the current frame, **relative to
     /// the previous frame**.
@@ -109,7 +109,7 @@ pub struct Frame {
     /// the origin.
     pub pos_y: f32,
     /// The z-coordinate of the root position of the skeleton for the current frame, relative to
-    /// the origin. It is only present in FRM v1.1 and is zero otherwise.
+    /// the origin. It's only present in FRM v1.1 and is zero otherwise.
     pub pos_z: f32,
     /// The bone matrices of all bones for the current frame. Originally, they only contain
     /// rotation.
