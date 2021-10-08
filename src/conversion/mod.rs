@@ -2,7 +2,7 @@ use anyhow::Result;
 
 pub use self::{
     asset::Asset,
-    scene::{Animation, Joint, Mesh, Scene},
+    scene::{Animation, Joint, Mesh, Scene, Vertex},
 };
 
 mod asset;

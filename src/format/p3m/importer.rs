@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
+use glam::Vec3A;
 
-use crate::conversion::{Asset, Importer, Joint, Scene};
+use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
 
-use super::internal::{AngleBone, P3m, PositionBone};
+use super::internal::{AngleBone, P3m, PositionBone, SkinVertex};
 
 pub struct P3mImporter {}
 
@@ -12,6 +13,7 @@ impl Importer for P3mImporter {
             .context("Failed to deserialize the bytes of the .p3m asset")?;
 
         scene.skeleton = convert_joints(&p3m.position_bones, &p3m.angle_bones);
+        scene.meshes.push(convert_mesh(p3m, asset, scene));
 
         Ok(())
     }
@@ -54,6 +56,37 @@ fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) ->
     }
 
     joints
+}
+
+fn convert_mesh(p3m: P3m, asset: &Asset, scene: &Scene) -> Mesh {
+    Mesh {
+        name: asset.name().to_string(),
+        vertices: convert_vertices(&p3m.skin_vertices, p3m.position_bones.len(), scene),
+        indexes: p3m
+            .faces
+            .iter()
+            .flat_map(|face| face.iter().map(|&index| index as usize))
+            .collect(),
+    }
+}
+
+fn convert_vertices(
+    skin_vertices: &[SkinVertex],
+    num_pos_bones: usize,
+    scene: &Scene,
+) -> Vec<Vertex> {
+    skin_vertices
+        .iter()
+        .map(|vertex| {
+            let joint = vertex.bone_index as usize - num_pos_bones;
+            Vertex {
+                position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
+                normal: Vec3A::from(vertex.normal).normalize_or_zero(),
+                uv: vertex.uv.into(),
+                joint,
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

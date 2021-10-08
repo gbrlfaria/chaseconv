@@ -10,8 +10,23 @@ pub struct Scene {
     pub animations: Vec<Animation>,
 }
 
+impl Scene {
+    pub fn joint_world_translation(&self, index: usize) -> Vec3A {
+        let mut joint = &self.skeleton[index];
+        let mut translation = joint.translation;
+        while let Some(parent) = joint.parent {
+            joint = &self.skeleton[parent];
+            translation += joint.translation;
+        }
+
+        translation
+    }
+}
+
 /// Represents the geometry of a mesh.
 pub struct Mesh {
+    /// The name of the mesh.
+    pub name: String,
     /// The list of vertices (vertex buffer) of the geometry.
     pub vertices: Vec<Vertex>,
     /// The list of indexes (index buffer) of the geometry, which determines the faces of the mesh.
