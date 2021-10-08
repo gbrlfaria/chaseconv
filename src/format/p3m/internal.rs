@@ -244,7 +244,8 @@ pub struct SkinVertex {
     pub position: [f32; 3],
     /// Bone influence weight. In practice, it's unused and is always one.
     pub weight: f32,
-    /// Index of the angle bone that influences the vertex.
+    /// Index of the angle bone that influences the vertex **plus** the number of position
+    /// bones.
     pub bone_index: u8,
     /// Vertex normal vector.
     pub normal: [f32; 3],
