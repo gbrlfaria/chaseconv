@@ -10,12 +10,12 @@ pub struct P3mImporter {}
 impl Importer for P3mImporter {
     fn import(&self, asset: &Asset, scene: &mut Scene) -> Result<()> {
         let p3m = P3m::from_bytes(&asset.bytes)
-            .context("Failed to deserialize the bytes of the .p3m asset")?;
+            .context("Failed to deserialize the bytes of the P3M asset")?;
 
         scene.skeleton = convert_joints(&p3m.position_bones, &p3m.angle_bones);
         scene
             .meshes
-            .push(convert_mesh(p3m, asset.name().to_string(), scene));
+            .push(convert_mesh(&p3m, asset.name().to_string(), scene));
 
         Ok(())
     }
@@ -60,7 +60,7 @@ fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) ->
     joints
 }
 
-fn convert_mesh(p3m: P3m, name: String, scene: &Scene) -> Mesh {
+fn convert_mesh(p3m: &P3m, name: String, scene: &Scene) -> Mesh {
     Mesh {
         name,
         vertices: convert_vertices(&p3m.skin_vertices, p3m.position_bones.len(), scene),
@@ -83,7 +83,7 @@ fn convert_vertices(
             let joint = vertex.bone_index as usize - num_position_bones;
             Vertex {
                 position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
-                normal: Vec3A::from(vertex.normal).normalize_or_zero(),
+                normal: Vec3A::from(vertex.normal),
                 uv: vertex.uv.into(),
                 joint,
             }
@@ -93,11 +93,82 @@ fn convert_vertices(
 
 #[cfg(test)]
 mod tests {
-    use glam::Vec3A;
+    use glam::{Vec2, Vec3A};
 
     use super::*;
 
-    // TODO: create P3M model that can be used across many test cases.
+    #[test]
+    fn mesh() {
+        let name = String::from("model");
+        let p3m = P3m {
+            version_header: String::new(),
+            position_bones: vec![PositionBone::new(); 1],
+            angle_bones: Vec::new(),
+            texture_name: String::new(),
+            faces: vec![[0, 1, 2]],
+            skin_vertices: vec![
+                SkinVertex {
+                    position: [1., 0., 0.],
+                    weight: 1.,
+                    bone_index: 1,
+                    normal: [1., 0., 0.],
+                    uv: [0., 0.],
+                },
+                SkinVertex {
+                    position: [0., 1., 0.],
+                    weight: 1.,
+                    bone_index: 1,
+                    normal: [0., 1., 0.],
+                    uv: [0.5, 0.5],
+                },
+                SkinVertex {
+                    position: [0., 0., 1.],
+                    weight: 1.,
+                    bone_index: 1,
+                    normal: [0., 0., 1.],
+                    uv: [1., 1.],
+                },
+            ],
+            mesh_vertices: Vec::new(),
+        };
+        let scene = Scene {
+            meshes: Vec::new(),
+            skeleton: vec![Joint {
+                translation: Vec3A::new(1., 1., 1.),
+                parent: None,
+                children: Vec::new(),
+            }],
+            animations: Vec::new(),
+        };
+
+        let actual = convert_mesh(&p3m, name, &scene);
+        let expected = Mesh {
+            name: String::from("model"),
+            vertices: vec![
+                Vertex {
+                    position: Vec3A::new(2., 1., 1.),
+                    normal: Vec3A::new(1., 0., 0.),
+                    uv: Vec2::new(0., 0.),
+                    joint: 0,
+                },
+                Vertex {
+                    position: Vec3A::new(1., 2., 1.),
+                    normal: Vec3A::new(0., 1., 0.),
+                    uv: Vec2::new(0.5, 0.5),
+                    joint: 0,
+                },
+                Vertex {
+                    position: Vec3A::new(1., 1., 2.),
+                    normal: Vec3A::new(0., 0., 1.),
+                    uv: Vec2::new(1., 1.),
+                    joint: 0,
+                },
+            ],
+            indexes: vec![0, 1, 2],
+        };
+
+        assert_eq!(expected, actual);
+    }
 
     #[test]
     fn joints() {

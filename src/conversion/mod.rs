@@ -40,7 +40,7 @@ pub struct Converter {
     pub importer: Box<dyn Importer>,
     pub exporter: Box<dyn Exporter>,
 }
-
+// TODO: extend from Box to Vec<Box<T>>
 impl Converter {
     fn new(
         format: &'static str,

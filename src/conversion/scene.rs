@@ -11,6 +11,8 @@ pub struct Scene {
 }
 
 impl Scene {
+    /// Returns the translation of the joint with the given index, relative to the origin of
+    /// the scene.
     pub fn joint_world_translation(&self, index: usize) -> Vec3A {
         let mut joint = &self.skeleton[index];
         let mut translation = joint.translation;
@@ -24,6 +26,7 @@ impl Scene {
 }
 
 /// Represents the geometry of a mesh.
+#[derive(Debug, PartialEq)]
 pub struct Mesh {
     /// The name of the mesh.
     pub name: String,
@@ -61,6 +64,7 @@ pub struct Animation {
 }
 
 /// Represents a skinned vertex of a mesh.
+#[derive(Debug, PartialEq)]
 pub struct Vertex {
     /// The position of the vertex, relative to the origin.
     pub position: Vec3A,

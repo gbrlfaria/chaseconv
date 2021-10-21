@@ -118,7 +118,7 @@ impl P3m {
 }
 
 /// A translation modifier that applies to a set of children angle bones.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PositionBone {
     /// The translation applied to the children, relative to the parent bone.
     pub position: [f32; 3],
@@ -127,7 +127,7 @@ pub struct PositionBone {
 }
 
 impl PositionBone {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             position: [0.; 3],
             children: Vec::new(),
@@ -140,7 +140,6 @@ impl PositionBone {
         reader.read_f32_into::<LE>(&mut position_bone.position)?;
 
         for _ in 0..10 {
-            // TODO: CHANGE TO BREAK ON FIRST.
             let child = reader.read_u8()?;
             if child != INVALID_BONE_INDEX {
                 position_bone.children.push(child);
@@ -188,7 +187,7 @@ pub struct AngleBone {
 }
 
 impl AngleBone {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             position: [0.; 3],
             scale: 0.,
@@ -254,7 +253,7 @@ pub struct SkinVertex {
 }
 
 impl SkinVertex {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             position: [0.; 3],
             weight: 1.,
@@ -314,7 +313,7 @@ pub struct MeshVertex {
 }
 
 impl MeshVertex {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             position: [0.; 3],
             normal: [0.; 3],
