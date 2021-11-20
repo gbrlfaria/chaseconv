@@ -60,6 +60,7 @@ impl Joint {
 
 /// Represents a keyframe animation sequence.
 pub struct Animation {
+    pub name: String,
     pub frames: Vec<Keyframe>,
 }
 
@@ -80,7 +81,7 @@ pub struct Vertex {
 /// Represents a single keyframe of a animation sequence.
 pub struct Keyframe {
     /// The duration, in milliseconds, of the frame.
-    pub duration: u64,
+    pub duration: f64,
     /// The translation of applied to the whole skeleton.
     pub root_translation: Vec3A,
     /// The list transform matrices for each joint at the current frame.
