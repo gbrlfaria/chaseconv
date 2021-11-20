@@ -1,9 +1,9 @@
 use glam::{Mat4, Vec2, Vec3A};
 
-/// Represents a 3D scene comprised of an skeleton, meshes, and animations.
+/// Represents a 3D scene comprised of skeleton, meshes, and animations.
 /// It's the intermediary format between conversions and provides some operations.
 ///
-/// The geometry should use the left-handed Y-up coordinate system.
+/// It should use the left-handed Y-up coordinate system.
 pub struct Scene {
     pub meshes: Vec<Mesh>,
     pub skeleton: Vec<Joint>,
