@@ -104,12 +104,12 @@ pub struct Frame {
     pub option: u8,
     /// The x-coordinate of the root position of the skeleton for the current frame, **relative to
     /// the previous frame**.
-    pub pos_x: f32,
+    pub plus_x: f32,
     /// The y-coordinate of the root position of the skeleton for the current frame, relative to
     /// the origin.
     pub pos_y: f32,
-    /// The z-coordinate of the root position of the skeleton for the current frame, relative to
-    /// the origin. It's only present in FRM v1.1 and is zero otherwise.
+    /// The z-coordinate of the root position of the skeleton for the current frame, **relative to
+    /// the previous frame**. It's only present in FRM v1.1 and is zero otherwise.
     pub pos_z: f32,
     /// The bone matrices of all bones for the current frame. Originally, they only contain
     /// rotation.
@@ -120,7 +120,7 @@ impl Frame {
     pub fn new() -> Self {
         Self {
             option: 0,
-            pos_x: 0.,
+            plus_x: 0.,
             pos_y: 0.,
             pos_z: 0.,
             bones: Vec::new(),
@@ -131,7 +131,7 @@ impl Frame {
         let mut frame = Self::new();
 
         frame.option = reader.read_u8()?;
-        frame.pos_x = reader.read_f32::<LE>()?;
+        frame.plus_x = reader.read_f32::<LE>()?;
         frame.pos_y = reader.read_f32::<LE>()?;
 
         for _ in 0..num_bones {
@@ -147,7 +147,7 @@ impl Frame {
 
     pub fn into_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
         bytes.write_u8(self.option)?;
-        bytes.write_f32::<LE>(self.pos_x)?;
+        bytes.write_f32::<LE>(self.plus_x)?;
         bytes.write_f32::<LE>(self.pos_y)?;
 
         for bone_matrix in &self.bones {
@@ -211,14 +211,14 @@ mod tests {
             frames: vec![
                 Frame {
                     option: 0,
-                    pos_x: 1.,
+                    plus_x: 1.,
                     pos_y: -1.,
                     pos_z: 0.,
                     bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
                 },
                 Frame {
                     option: 0,
-                    pos_x: -1.,
+                    plus_x: -1.,
                     pos_y: 1.,
                     pos_z: 0.,
                     bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
@@ -249,14 +249,14 @@ mod tests {
             frames: vec![
                 Frame {
                     option: 0,
-                    pos_x: 1.,
+                    plus_x: 1.,
                     pos_y: -1.,
                     pos_z: 0.,
                     bones: vec![[[0.; 4], [0.; 4], [0.; 4], [0.; 4]]],
                 },
                 Frame {
                     option: 0,
-                    pos_x: -1.,
+                    plus_x: -1.,
                     pos_y: 1.,
                     pos_z: 1.,
                     bones: vec![[[1.; 4], [1.; 4], [1.; 4], [1.; 4]]],
