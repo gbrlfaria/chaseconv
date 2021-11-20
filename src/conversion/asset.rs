@@ -15,7 +15,7 @@ impl Asset {
             .file_stem()
             .unwrap_or_default()
             .to_str()
-            .expect("The name of the asset file isn't a valid unicode string")
+            .expect("The name of the asset file is not a valid unicode string")
     }
 
     pub fn parent_dir(&self) -> &str {
@@ -23,6 +23,6 @@ impl Asset {
             .parent()
             .unwrap()
             .to_str()
-            .expect("The path to directory of the asset isn't a valid unicode string")
+            .expect("The path to directory of the asset is not a valid unicode string")
     }
 }
