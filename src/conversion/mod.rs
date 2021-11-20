@@ -2,7 +2,7 @@ use anyhow::Result;
 
 pub use self::{
     asset::Asset,
-    scene::{Animation, Joint, Mesh, Scene, Vertex},
+    scene::{Animation, Joint, Keyframe, Mesh, Scene, Vertex},
 };
 
 mod asset;
@@ -40,6 +40,7 @@ pub struct Converter {
     pub importer: Box<dyn Importer>,
     pub exporter: Box<dyn Exporter>,
 }
+
 // TODO: extend from Box to Vec<Box<T>>
 impl Converter {
     fn new(
