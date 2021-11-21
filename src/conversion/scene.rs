@@ -90,3 +90,56 @@ pub struct Keyframe {
     /// index in the [`Scene`] skeleton.
     pub joint_transforms: Vec<Mat4>,
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn joint_world_translation() {
+        let scene = Scene {
+            meshes: Vec::new(),
+            skeleton: vec![
+                Joint {
+                    translation: Vec3A::new(1., 1., 1.),
+                    parent: None,
+                    children: vec![1, 2],
+                },
+                Joint {
+                    translation: Vec3A::new(2., 2., 2.),
+                    parent: Some(0),
+                    children: vec![3],
+                },
+                Joint {
+                    translation: Vec3A::new(4., 4., 4.),
+                    parent: Some(0),
+                    children: Vec::new(),
+                },
+                Joint {
+                    translation: Vec3A::new(0., 0., 0.),
+                    parent: Some(1),
+                    children: Vec::new(),
+                },
+            ],
+            animations: Vec::new(),
+        };
+
+        let actual = scene.joint_world_translation(0);
+        let expected = Vec3A::new(1., 1., 1.);
+        assert_eq!(expected, actual);
+
+        let actual = scene.joint_world_translation(1);
+        let expected = Vec3A::new(3., 3., 3.);
+        assert_eq!(expected, actual);
+
+        let actual = scene.joint_world_translation(2);
+        let expected = Vec3A::new(5., 5., 5.);
+        assert_eq!(expected, actual);
+
+        let actual = scene.joint_world_translation(3);
+        let expected = Vec3A::new(3., 3., 3.);
+        assert_eq!(expected, actual);
+    }
+}
