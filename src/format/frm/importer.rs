@@ -28,12 +28,13 @@ impl Importer for FrmImporter {
 
 fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
     let mut prev_root_trans = Vec3A::new(0., 0., 0.);
+    let mut current_time = 0.;
 
     frm.frames
         .iter()
         .map(|frame| {
             let keyframe = Keyframe {
-                duration: 1000. / 55.,
+                time: current_time,
                 root_translation: Vec3A::new(
                     prev_root_trans.x + frame.plus_x,
                     frame.pos_y,
@@ -46,9 +47,62 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
                     .collect(),
             };
 
+            current_time += 1. / 55.;
             prev_root_trans = keyframe.root_translation;
 
             keyframe
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::format::frm::internal::{Frame, FrmVersion};
+
+    use super::*;
+
+    #[test]
+    fn frames() {
+        let frm = Frm {
+            version: FrmVersion::V1_1,
+            frames: vec![
+                Frame {
+                    option: 0,
+                    plus_x: 1.,
+                    pos_y: 1.,
+                    pos_z: 1.,
+                    bones: vec![[[1.; 4]; 4], [[2.; 4]; 4]],
+                },
+                Frame {
+                    option: 0,
+                    plus_x: 1.,
+                    pos_y: 1.,
+                    pos_z: 1.,
+                    bones: vec![[[3.; 4]; 4], [[4.; 4]; 4]],
+                },
+            ],
+        };
+
+        let actual = convert_frames(&frm);
+        let expected = vec![
+            Keyframe {
+                time: 0.,
+                root_translation: Vec3A::new(1., 1., 1.),
+                joint_transforms: vec![
+                    Mat4::from_cols_array(&[1.; 16]),
+                    Mat4::from_cols_array(&[2.; 16]),
+                ],
+            },
+            Keyframe {
+                time: 0.01818181818181818181818181818182,
+                root_translation: Vec3A::new(2., 1., 2.),
+                joint_transforms: vec![
+                    Mat4::from_cols_array(&[3.; 16]),
+                    Mat4::from_cols_array(&[4.; 16]),
+                ],
+            },
+        ];
+
+        assert_eq!(expected, actual);
+    }
 }

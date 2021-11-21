@@ -79,9 +79,10 @@ pub struct Vertex {
 }
 
 /// Represents a single keyframe of a animation sequence.
+#[derive(Debug, PartialEq)]
 pub struct Keyframe {
-    /// The duration, in milliseconds, of the frame.
-    pub duration: f64,
+    /// The time step, in seconds, of the frame.
+    pub time: f64,
     /// The translation of applied to the whole skeleton.
     pub root_translation: Vec3A,
     /// The list transform matrices for each joint at the current frame.

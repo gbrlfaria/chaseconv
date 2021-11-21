@@ -12,3 +12,6 @@ byteorder = "1.4.3"
 glam = "0.20.0"
 memchr = "2.4.1"
 safe-transmute = "0.11.2"
+
+[dev-dependencies]
+pretty_assertions = "1.0.0"
