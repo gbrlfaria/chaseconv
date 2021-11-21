@@ -383,6 +383,8 @@ mod util {
 
     #[cfg(test)]
     mod tests {
+        use pretty_assertions::assert_eq;
+
         use super::*;
 
         #[test]
@@ -446,6 +448,8 @@ mod util {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use super::*;
 
     #[test]

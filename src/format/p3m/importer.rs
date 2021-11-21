@@ -93,6 +93,8 @@ fn convert_vertices(
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use glam::{Vec2, Vec3A};
 
     use super::*;

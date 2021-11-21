@@ -57,6 +57,8 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use crate::format::frm::internal::{Frame, FrmVersion};
 
     use super::*;
