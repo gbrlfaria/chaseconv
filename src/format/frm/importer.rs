@@ -47,6 +47,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
                     .collect(),
             };
 
+            // The frame rate of the animation is always 55 FPS.
             current_time += 1. / 55.;
             prev_root_trans = keyframe.root_translation;
 
