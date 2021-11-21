@@ -6,9 +6,8 @@ pub struct Asset {
 }
 
 impl Asset {
-    pub fn new() {
-        // TODO: panic on paths that are not files.
-    }
+    // from_filename
+    // from_path
 
     pub fn name(&self) -> &str {
         self.path
