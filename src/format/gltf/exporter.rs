@@ -1,7 +1,6 @@
 use anyhow::Result;
 use byteorder::{WriteBytesExt, LE};
-use gltf::json;
-use json::validation::Checked::Valid;
+use gltf::json::{self, validation::Checked::Valid};
 
 use crate::conversion::{Asset, Exporter, Joint, Mesh, Scene};
 
@@ -11,6 +10,7 @@ pub struct GltfExporter {}
 // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html
 // TODO: (final) return Results instead of unwraps
 // TODO: u32 returns to usize
+// TODO: root asset generator
 impl Exporter for GltfExporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
         // TODO: transform to correct coordinate system. And normalize normals.
