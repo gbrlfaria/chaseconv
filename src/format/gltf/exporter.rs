@@ -221,7 +221,7 @@ fn insert_joint_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) 
     };
 
     for vertex in &mesh.vertices {
-        buffer.append(&mut vec![vertex.joint as u8, 0, 0, 0]);
+        buffer.extend_from_slice(&[vertex.joint as u8; 4]);
     }
 
     root.accessors.push(accessor);
