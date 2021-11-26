@@ -75,7 +75,7 @@ pub struct Vertex {
     pub uv: Vec2,
     /// The index of the single influencing joint in the [`Scene`] skeleton.
     /// The joint exerts 100% influence over the vertex.
-    pub joint: usize,
+    pub joint: Option<usize>,
 }
 
 /// Represents a single keyframe of a animation sequence.

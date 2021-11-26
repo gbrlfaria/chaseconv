@@ -85,7 +85,7 @@ fn convert_vertices(
                 position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
                 normal: Vec3A::from(vertex.normal),
                 uv: vertex.uv.into(),
-                joint,
+                joint: if joint != 0xff { Some(joint) } else { None },
             }
         })
         .collect()
@@ -151,19 +151,19 @@ mod tests {
                     position: Vec3A::new(2., 1., 1.),
                     normal: Vec3A::new(1., 0., 0.),
                     uv: Vec2::new(0., 0.),
-                    joint: 0,
+                    joint: Some(0),
                 },
                 Vertex {
                     position: Vec3A::new(1., 2., 1.),
                     normal: Vec3A::new(0., 1., 0.),
                     uv: Vec2::new(0.5, 0.5),
-                    joint: 0,
+                    joint: Some(0),
                 },
                 Vertex {
                     position: Vec3A::new(1., 1., 2.),
                     normal: Vec3A::new(0., 0., 1.),
                     uv: Vec2::new(1., 1.),
-                    joint: 0,
+                    joint: Some(0),
                 },
             ],
             indexes: vec![0, 1, 2],
