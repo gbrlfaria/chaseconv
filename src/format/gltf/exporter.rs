@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use byteorder::{WriteBytesExt, LE};
+use glam::Affine3A;
 use gltf::json::{
     self,
     mesh::{Primitive, Semantic},
@@ -14,16 +15,41 @@ pub struct GltfExporter {}
 
 // https://github.com/gltf-rs/gltf/blob/master/examples/export/main.rs
 // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html
+// TODO: Mat4 to Affine3A
 // REFACTOR:
 // TODO: buffer alignment according to data type size (f32, u8, u16)
 // TODO: u32 returns to usize
 // TODO: root asset generator version
 // TODO: (final) return Results instead of unwraps
+// TODO: indices name in scene
 impl Exporter for GltfExporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
-        // TODO: transform to correct coordinate system. And normalize normals.
+        let mut root = json::Root::default();
+        let mut buffer = Vec::new();
+
+        let skeleton_index = insert_scene(&mut root, &scene.skeleton, &scene.meshes);
+        insert_meshes(&mut root, &mut buffer, &scene.meshes);
+        insert_skins(&mut root, &mut buffer, &scene, skeleton_index);
+
         Ok(Vec::new())
     }
+}
+
+fn insert_skins(root: &mut json::Root, buffer: &mut Vec<u8>, scene: &Scene, skeleton_index: u32) {
+    if scene.skeleton.is_empty() {
+        return;
+    }
+    let inverse_bind_accessor = insert_inverse_bind_bytes(root, buffer, scene);
+    root.skins = vec![json::Skin {
+        inverse_bind_matrices: Some(json::Index::new(inverse_bind_accessor)),
+        joints: (0..scene.skeleton.len())
+            .map(|index| json::Index::new(index as u32))
+            .collect(),
+        skeleton: Some(json::Index::new(skeleton_index)),
+        name: None,
+        extensions: None,
+        extras: Default::default(),
+    }];
 }
 
 fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) {
@@ -365,9 +391,54 @@ fn insert_indices_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
     (root.accessors.len() - 1) as u32
 }
 
+fn insert_inverse_bind_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, scene: &Scene) -> u32 {
+    let accessor = json::Accessor {
+        buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
+        byte_offset: 0,
+        count: scene.skeleton.len() as u32,
+        type_: Checked::Valid(json::accessor::Type::Mat4),
+        component_type: Checked::Valid(json::accessor::GenericComponentType(
+            json::accessor::ComponentType::F32,
+        )),
+        min: None,
+        max: None,
+        name: None,
+        normalized: false,
+        sparse: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    align_to_multiple_of_four(buffer);
+    let view = json::buffer::View {
+        buffer: json::Index::new(root.buffers.len() as u32),
+        byte_offset: Some(buffer.len() as u32),
+        byte_length: (scene.skeleton.len() * std::mem::size_of::<[f32; 4 * 4]>()) as u32,
+        byte_stride: None,
+        name: None,
+        target: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    for (index, _) in scene.skeleton.iter().enumerate() {
+        let mut matrix = Affine3A::IDENTITY;
+        matrix.translation = -scene.joint_world_translation(index);
+
+        for &value in &matrix.to_cols_array() {
+            buffer.write_f32::<LE>(value).unwrap();
+        }
+    }
+
+    root.accessors.push(accessor);
+    root.buffer_views.push(view);
+
+    (root.accessors.len() - 1) as u32
+}
+
 /// Converts and inserts the scene and its nodes into the json.
-/// Returns the id of the root node of the skeleton.
-fn insert_scene_nodes(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> u32 {
+/// Returns the index of the root node of the skeleton in the node hierarchy.
+fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> u32 {
     let mut nodes = Vec::new();
 
     let skeleton_node = push_skeleton_nodes(&mut root.nodes, skeleton);
@@ -497,7 +568,7 @@ mod tests {
             vertices: Vec::new(),
             indexes: Vec::new(),
         }];
-        let skeleton_node = insert_scene_nodes(&mut root, &skeleton, &meshes);
+        let skeleton_node = insert_scene(&mut root, &skeleton, &meshes);
 
         assert_eq!(0, root.scene.unwrap().value());
         assert_eq!(
