@@ -6,8 +6,17 @@ pub struct Asset {
 }
 
 impl Asset {
-    // from_filename
-    // from_path
+    pub fn new(bytes: Vec<u8>, path: &str) -> Self {
+        Self {
+            bytes,
+            path: path.into(),
+        }
+    }
+
+    /// Get a reference to the asset's path.
+    pub fn path(&self) -> &PathBuf {
+        &self.path
+    }
 
     pub fn name(&self) -> &str {
         self.path

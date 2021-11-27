@@ -4,6 +4,7 @@ use glam::{Mat4, Vec2, Vec3A};
 /// It's the intermediary format between conversions and provides some operations.
 ///
 /// It should use the left-handed Y-up coordinate system.
+#[derive(Debug, Default)]
 pub struct Scene {
     pub meshes: Vec<Mesh>,
     pub skeleton: Vec<Joint>,
@@ -59,6 +60,7 @@ impl Joint {
 }
 
 /// Represents a keyframe animation sequence.
+#[derive(Debug)]
 pub struct Animation {
     pub name: String,
     pub frames: Vec<Keyframe>,
