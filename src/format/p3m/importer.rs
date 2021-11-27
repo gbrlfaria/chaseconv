@@ -64,7 +64,7 @@ fn convert_mesh(p3m: &P3m, name: String, scene: &Scene) -> Mesh {
     Mesh {
         name,
         vertices: convert_vertices(&p3m.skin_vertices, p3m.position_bones.len(), scene),
-        indexes: p3m
+        indices: p3m
             .faces
             .iter()
             .flat_map(|face| face.iter().map(|&index| index as usize))
@@ -166,7 +166,7 @@ mod tests {
                     joint: Some(0),
                 },
             ],
-            indexes: vec![0, 1, 2],
+            indices: vec![0, 1, 2],
         };
 
         assert_eq!(expected, actual);

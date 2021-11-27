@@ -33,8 +33,8 @@ pub struct Mesh {
     pub name: String,
     /// The list of vertices (vertex buffer) of the geometry.
     pub vertices: Vec<Vertex>,
-    /// The list of indexes (index buffer) of the geometry, which determines the faces of the mesh.
-    pub indexes: Vec<usize>,
+    /// The list of indices (index buffer) of the geometry, which determines the faces of the mesh.
+    pub indices: Vec<usize>,
 }
 
 /// Represents a joint of the [`Scene`] skeleton. It only supports translation.

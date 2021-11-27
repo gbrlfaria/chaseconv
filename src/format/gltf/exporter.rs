@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, mem};
 
 use anyhow::Result;
 use byteorder::{WriteBytesExt, LE};
@@ -15,17 +15,26 @@ pub struct GltfExporter {}
 
 // https://github.com/gltf-rs/gltf/blob/master/examples/export/main.rs
 // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html
-// TODO: Mat4 to Affine3A
 // REFACTOR:
-// TODO: buffer alignment according to data type size (f32, u8, u16)
-// TODO: u32 returns to usize
-// TODO: root asset generator version
 // TODO: (final) return Results instead of unwraps
-// TODO: indices name in scene
+// TODO(LAST): export as .glb
 impl Exporter for GltfExporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
         let mut root = json::Root::default();
         let mut buffer = Vec::new();
+
+        root.asset = json::Asset {
+            generator: Some(format!(
+                "{} {}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            )),
+            version: "2.0".to_string(),
+            copyright: None,
+            extensions: None,
+            min_version: None,
+            extras: Default::default(),
+        };
 
         let skeleton_index = insert_scene(&mut root, &scene.skeleton, &scene.meshes);
         insert_meshes(&mut root, &mut buffer, &scene.meshes);
@@ -52,17 +61,17 @@ impl Exporter for GltfExporter {
     }
 }
 
-fn insert_skins(root: &mut json::Root, buffer: &mut Vec<u8>, scene: &Scene, skeleton_index: u32) {
+fn insert_skins(root: &mut json::Root, buffer: &mut Vec<u8>, scene: &Scene, skeleton_index: usize) {
     if scene.skeleton.is_empty() {
         return;
     }
     let inverse_bind_accessor = insert_inverse_bind_bytes(root, buffer, scene);
     root.skins = vec![json::Skin {
-        inverse_bind_matrices: Some(json::Index::new(inverse_bind_accessor)),
+        inverse_bind_matrices: Some(json::Index::new(inverse_bind_accessor as u32)),
         joints: (0..scene.skeleton.len())
             .map(|index| json::Index::new(index as u32))
             .collect(),
-        skeleton: Some(json::Index::new(skeleton_index)),
+        skeleton: Some(json::Index::new(skeleton_index as u32)),
         name: None,
         extensions: None,
         extras: Default::default(),
@@ -81,23 +90,23 @@ fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) {
         let mut attributes = HashMap::new();
         attributes.insert(
             Checked::Valid(Semantic::Positions),
-            json::Index::new(positions_accessor),
+            json::Index::new(positions_accessor as u32),
         );
         attributes.insert(
             Checked::Valid(Semantic::Normals),
-            json::Index::new(normals_accessor),
+            json::Index::new(normals_accessor as u32),
         );
         attributes.insert(
             Checked::Valid(Semantic::TexCoords(0)),
-            json::Index::new(uv_accessor),
+            json::Index::new(uv_accessor as u32),
         );
         attributes.insert(
             Checked::Valid(Semantic::Joints(0)),
-            json::Index::new(joints_accessor),
+            json::Index::new(joints_accessor as u32),
         );
         attributes.insert(
             Checked::Valid(Semantic::Weights(0)),
-            json::Index::new(weights_accessor),
+            json::Index::new(weights_accessor as u32),
         );
 
         root.meshes.push(json::Mesh {
@@ -105,7 +114,7 @@ fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) {
             primitives: vec![Primitive {
                 attributes,
                 extensions: None,
-                indices: Some(json::Index::new(indices_accessor)),
+                indices: Some(json::Index::new(indices_accessor as u32)),
                 material: None,
                 targets: None,
                 mode: Default::default(),
@@ -128,7 +137,7 @@ fn insert_buffers(root: &mut json::Root, buffer: &Vec<u8>) {
     });
 }
 
-fn insert_positions_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> u32 {
+fn insert_positions_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> usize {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -184,11 +193,11 @@ fn insert_positions_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Me
         extras: Default::default(),
     };
 
-    align_to_multiple_of_four(buffer);
+    align_to(buffer, mem::size_of::<f32>());
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (mesh.vertices.len() * std::mem::size_of::<[f32; 3]>()) as u32,
+        byte_length: (mesh.vertices.len() * mem::size_of::<[f32; 3]>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -205,10 +214,10 @@ fn insert_positions_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Me
     root.accessors.push(accessor);
     root.buffer_views.push(view);
 
-    (root.accessors.len() - 1) as u32
+    root.accessors.len() - 1
 }
 
-fn insert_normals_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> u32 {
+fn insert_normals_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> usize {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -226,11 +235,11 @@ fn insert_normals_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
         extras: Default::default(),
     };
 
-    align_to_multiple_of_four(buffer);
+    align_to(buffer, mem::size_of::<f32>());
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (mesh.vertices.len() * std::mem::size_of::<[f32; 3]>()) as u32,
+        byte_length: (mesh.vertices.len() * mem::size_of::<[f32; 3]>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -247,10 +256,10 @@ fn insert_normals_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
     root.accessors.push(accessor);
     root.buffer_views.push(view);
 
-    (root.accessors.len() - 1) as u32
+    root.accessors.len() - 1
 }
 
-fn insert_uv_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> u32 {
+fn insert_uv_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> usize {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -268,11 +277,11 @@ fn insert_uv_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> 
         extras: Default::default(),
     };
 
-    align_to_multiple_of_four(buffer);
+    align_to(buffer, mem::size_of::<f32>());
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (mesh.vertices.len() * std::mem::size_of::<[f32; 2]>()) as u32,
+        byte_length: (mesh.vertices.len() * mem::size_of::<[f32; 2]>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -289,10 +298,10 @@ fn insert_uv_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> 
     root.accessors.push(accessor);
     root.buffer_views.push(view);
 
-    (root.accessors.len() - 1) as u32
+    root.accessors.len() - 1
 }
 
-fn insert_joints_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> u32 {
+fn insert_joints_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> usize {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -310,11 +319,11 @@ fn insert_joints_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh)
         extras: Default::default(),
     };
 
-    align_to_multiple_of_four(buffer);
+    align_to(buffer, mem::size_of::<u8>());
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (mesh.vertices.len() * std::mem::size_of::<[u8; 4]>()) as u32,
+        byte_length: (mesh.vertices.len() * mem::size_of::<[u8; 4]>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -329,10 +338,10 @@ fn insert_joints_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh)
     root.accessors.push(accessor);
     root.buffer_views.push(view);
 
-    (root.accessors.len() - 1) as u32
+    root.accessors.len() - 1
 }
 
-fn insert_weights_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> u32 {
+fn insert_weights_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> usize {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -350,11 +359,11 @@ fn insert_weights_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
         extras: Default::default(),
     };
 
-    align_to_multiple_of_four(buffer);
+    align_to(buffer, mem::size_of::<f32>());
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (mesh.vertices.len() * std::mem::size_of::<[f32; 4]>()) as u32,
+        byte_length: (mesh.vertices.len() * mem::size_of::<[f32; 4]>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -375,14 +384,14 @@ fn insert_weights_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
     root.accessors.push(accessor);
     root.buffer_views.push(view);
 
-    (root.accessors.len() - 1) as u32
+    root.accessors.len() - 1
 }
 
-fn insert_indices_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> u32 {
+fn insert_indices_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> usize {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
-        count: mesh.indexes.len() as u32,
+        count: mesh.indices.len() as u32,
         type_: Checked::Valid(json::accessor::Type::Scalar),
         component_type: Checked::Valid(json::accessor::GenericComponentType(
             json::accessor::ComponentType::U16,
@@ -396,11 +405,11 @@ fn insert_indices_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
         extras: Default::default(),
     };
 
-    align_to_multiple_of_four(buffer);
+    align_to(buffer, mem::size_of::<u16>());
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (mesh.indexes.len() * std::mem::size_of::<u16>()) as u32,
+        byte_length: (mesh.indices.len() * mem::size_of::<u16>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -408,17 +417,17 @@ fn insert_indices_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
         extras: Default::default(),
     };
 
-    for &index in &mesh.indexes {
+    for &index in &mesh.indices {
         buffer.write_u16::<LE>(index as u16).unwrap();
     }
 
     root.accessors.push(accessor);
     root.buffer_views.push(view);
 
-    (root.accessors.len() - 1) as u32
+    root.accessors.len() - 1
 }
 
-fn insert_inverse_bind_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, scene: &Scene) -> u32 {
+fn insert_inverse_bind_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, scene: &Scene) -> usize {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -436,11 +445,11 @@ fn insert_inverse_bind_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, scene:
         extras: Default::default(),
     };
 
-    align_to_multiple_of_four(buffer);
+    align_to(buffer, mem::size_of::<f32>());
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (scene.skeleton.len() * std::mem::size_of::<[f32; 4 * 4]>()) as u32,
+        byte_length: (scene.skeleton.len() * mem::size_of::<[f32; 4 * 4]>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -459,12 +468,12 @@ fn insert_inverse_bind_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, scene:
     root.accessors.push(accessor);
     root.buffer_views.push(view);
 
-    (root.accessors.len() - 1) as u32
+    root.accessors.len() - 1
 }
 
 /// Converts and inserts the scene and its nodes into the json.
 /// Returns the index of the root node of the skeleton in the node hierarchy.
-fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> u32 {
+fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> usize {
     let mut nodes = Vec::new();
 
     let skeleton_node = push_skeleton_nodes(&mut root.nodes, skeleton);
@@ -476,7 +485,10 @@ fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> u
 
     root.scene = Some(json::Index::new(0));
     root.scenes.push(json::Scene {
-        nodes: nodes.iter().map(|&node| json::Index::new(node)).collect(),
+        nodes: nodes
+            .iter()
+            .map(|&node| json::Index::new(node as u32))
+            .collect(),
         name: None,
         extensions: None,
         extras: Default::default(),
@@ -485,7 +497,7 @@ fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> u
     skeleton_node
 }
 
-fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> u32 {
+fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize {
     let mut roots = Vec::new();
 
     let offset = nodes.len() as u32;
@@ -535,10 +547,10 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> u32 {
         extras: Default::default(),
     });
 
-    (nodes.len() - 1) as u32
+    nodes.len() - 1
 }
 
-fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32) -> u32 {
+fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32) -> usize {
     nodes.push(json::Node {
         name: Some(format!("mesh_{}", mesh.name)),
         mesh: Some(json::Index::new(index)),
@@ -554,12 +566,12 @@ fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32) -> u32 {
         extras: Default::default(),
     });
 
-    (nodes.len() - 1) as u32
+    nodes.len() - 1
 }
 
-/// Adds zeros to the buffer until it is 4-byte aligned.
-fn align_to_multiple_of_four(buffer: &mut Vec<u8>) {
-    buffer.append(&mut vec![0; buffer.len() % 4]);
+/// Adds zeros to the buffer until it is n-byte aligned.
+fn align_to(buffer: &mut Vec<u8>, n: usize) {
+    buffer.append(&mut vec![0; buffer.len() % n]);
 }
 
 #[cfg(test)]
@@ -592,7 +604,7 @@ mod tests {
         let meshes = [Mesh {
             name: String::from("goblin"),
             vertices: Vec::new(),
-            indexes: Vec::new(),
+            indices: Vec::new(),
         }];
         let skeleton_node = insert_scene(&mut root, &skeleton, &meshes);
 
