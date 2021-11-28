@@ -38,23 +38,8 @@ pub trait Exporter {
 pub struct Converter {
     /// The display name of the asset format.
     pub format: &'static str,
-    pub importer: Box<dyn Importer>,
-    pub exporter: Box<dyn Exporter>,
-}
-
-// TODO: extend from Box to Vec<Box<T>>
-impl Converter {
-    fn new(
-        format: &'static str,
-        importer: impl Importer + 'static,
-        exporter: impl Exporter + 'static,
-    ) -> Self {
-        Self {
-            format,
-            importer: Box::new(importer),
-            exporter: Box::new(exporter),
-        }
-    }
+    pub importers: Vec<Box<dyn Importer>>,
+    pub exporters: Vec<Box<dyn Exporter>>,
 }
 
 /// Returns all converters available.
