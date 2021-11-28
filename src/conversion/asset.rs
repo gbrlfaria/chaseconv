@@ -26,6 +26,14 @@ impl Asset {
             .expect("The name of the asset file is not a valid unicode string")
     }
 
+    pub fn extension(&self) -> &str {
+        self.path
+            .extension()
+            .unwrap_or_default()
+            .to_str()
+            .expect("The extension of the asset file is not a valid unicode string")
+    }
+
     pub fn parent_dir(&self) -> &str {
         self.path
             .parent()

@@ -1,5 +1,7 @@
 use anyhow::Result;
 
+use crate::format::{FrmImporter, GltfExporter, P3mImporter};
+
 pub use self::{
     asset::Asset,
     scene::{Animation, Joint, Keyframe, Mesh, Scene, Vertex},
@@ -36,13 +38,31 @@ pub trait Exporter {
 
 /// The converter for certain asset format.
 pub struct Converter {
-    /// The display name of the asset format.
+    /// The display name of the output asset format.
     pub format: &'static str,
-    pub importers: Vec<Box<dyn Importer>>,
-    pub exporters: Vec<Box<dyn Exporter>>,
+    exporters: Vec<Box<dyn Exporter>>,
+}
+
+impl Converter {}
+
+// Returns all importers available.
+fn importers() -> Vec<Box<dyn Importer>> {
+    vec![
+        Box::new(P3mImporter::default()),
+        Box::new(FrmImporter::default()),
+    ]
 }
 
 /// Returns all converters available.
 pub fn converters() -> Vec<Converter> {
-    Vec::new()
+    vec![
+        Converter {
+            format: ".P3M/FRM (Grand Chase)",
+            exporters: vec![],
+        },
+        Converter {
+            format: ".GLB (glTF)",
+            exporters: vec![Box::new(GltfExporter::default())],
+        },
+    ]
 }
