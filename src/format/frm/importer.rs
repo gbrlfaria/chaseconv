@@ -5,6 +5,7 @@ use crate::conversion::{Animation, Asset, Importer, Keyframe, Scene};
 
 use super::internal::Frm;
 
+#[derive(Default)]
 pub struct FrmImporter {}
 
 impl Importer for FrmImporter {

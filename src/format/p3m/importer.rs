@@ -5,6 +5,7 @@ use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
 
 use super::internal::{AngleBone, P3m, PositionBone, SkinVertex};
 
+#[derive(Default)]
 pub struct P3mImporter {}
 
 impl Importer for P3mImporter {

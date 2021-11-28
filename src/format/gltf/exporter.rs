@@ -11,6 +11,7 @@ use gltf::json::{
 
 use crate::conversion::{Asset, Exporter, Joint, Mesh, Scene};
 
+#[derive(Default)]
 pub struct GltfExporter {}
 
 // https://github.com/gltf-rs/gltf/blob/master/examples/export/main.rs
