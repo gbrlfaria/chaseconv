@@ -11,7 +11,10 @@ fn main() {
     P3mImporter {}
         .import(&Asset::new(bytes, path), &mut scene)
         .unwrap();
-    let assets = GltfExporter {}.export(&scene).unwrap();
+
+    let exporter = GltfExporter {};
+    exporter.transform(&mut scene);
+    let assets = exporter.export(&scene).unwrap();
     for asset in &assets {
         std::fs::write(&asset.path(), &asset.bytes).unwrap();
     }

@@ -2,7 +2,7 @@ use std::{collections::HashMap, mem};
 
 use anyhow::Result;
 use byteorder::{WriteBytesExt, LE};
-use glam::{Affine3A, Mat4};
+use glam::{Mat4, Vec4};
 use gltf::json::{
     self,
     mesh::{Primitive, Semantic},
@@ -53,6 +53,35 @@ impl Exporter for GltfExporter {
             Asset::new(json_string.into_bytes(), "scene.gltf"),
             Asset::new(buffer, "buffer0.bin"),
         ])
+    }
+
+    fn transform(&self, scene: &mut Scene) {
+        let mut matrix = Mat4::IDENTITY;
+        matrix.z_axis = Vec4::new(0., 0., -1., 0.);
+
+        for mesh in &mut scene.meshes {
+            for vertex in &mut mesh.vertices {
+                vertex.position = matrix.transform_point3a(vertex.position);
+                vertex.normal = matrix.transform_point3a(vertex.normal);
+            }
+
+            for i in 0..mesh.indices.len() / 3 {
+                mesh.indices.swap(i * 3 + 1, i * 3 + 2);
+            }
+        }
+
+        for joint in &mut scene.skeleton {
+            joint.translation = matrix.transform_point3a(joint.translation);
+        }
+
+        for animation in &mut scene.animations {
+            for frame in &mut animation.frames {
+                frame.root_translation.z = frame.root_translation.z * -1.;
+                for transform in &mut frame.joint_transforms {
+                    *transform = matrix.mul_mat4(transform).mul_mat4(&matrix);
+                }
+            }
+        }
     }
 }
 
@@ -470,9 +499,11 @@ fn insert_inverse_bind_bytes(
     };
 
     for (index, _) in scene.skeleton.iter().enumerate() {
-        let mut matrix = Affine3A::IDENTITY;
-        matrix.translation = -scene.joint_world_translation(index);
-        for &value in &Mat4::from(matrix).to_cols_array() {
+        let translation = Vec4::from((-scene.joint_world_translation(index), 1.));
+
+        let mut matrix = Mat4::IDENTITY;
+        matrix.w_axis = translation;
+        for value in matrix.to_cols_array() {
             buffer.write_f32::<LE>(value)?;
         }
     }

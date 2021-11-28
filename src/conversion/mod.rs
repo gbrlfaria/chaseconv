@@ -16,7 +16,7 @@ pub trait Importer {
     /// Postprocesses a scene after all its assets are imported. It's usually used to
     /// transform the scene geometry into the coordinate system of the intermediary
     /// scene format.
-    fn postprocess(&self, scene: &mut Scene) {}
+    fn transform(&self, scene: &mut Scene) {}
     /// Returns the file extensions supported by the importer. These extensions are used to
     /// select the appropriate importer given an asset file.
     ///
@@ -31,7 +31,7 @@ pub trait Exporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>>;
     /// Preprocesses a scene before it's exported. It's usually used to
     /// transform the scene geometry into coordinate system of the output format.
-    fn preprocess(&self, scene: &mut Scene) {}
+    fn transform(&self, scene: &mut Scene) {}
 }
 
 /// The converter for certain asset format.
