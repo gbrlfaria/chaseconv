@@ -134,8 +134,8 @@ fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) -
 fn insert_buffers(root: &mut json::Root, buffer: &Vec<u8>) {
     root.buffers.push(json::Buffer {
         byte_length: buffer.len() as u32,
-        name: None,
         uri: Some("buffer0.bin".into()),
+        name: None,
         extensions: None,
         extras: Default::default(),
     });
