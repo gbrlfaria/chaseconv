@@ -1,5 +1,4 @@
-pub use {self::gltf::GltfExporter, frm::FrmImporter, p3m::P3mImporter};
+pub use {self::gltf::GltfExporter, self::grandchase::GrandChaseImporter};
 
-pub mod frm;
 pub mod gltf;
-pub mod p3m;
+pub mod grandchase;

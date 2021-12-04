@@ -4,7 +4,7 @@ use glam::{Mat4, Vec2, Vec3A};
 /// It's the intermediary format between conversions and provides some operations.
 ///
 /// It should use the left-handed Y-up coordinate system.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Scene {
     pub meshes: Vec<Mesh>,
     pub skeleton: Vec<Joint>,
@@ -24,10 +24,17 @@ impl Scene {
 
         translation
     }
+
+    pub fn merge(mut self, mut other: Scene) -> Self {
+        self.meshes.append(&mut other.meshes);
+        self.animations.append(&mut other.animations);
+
+        self
+    }
 }
 
 /// Represents the geometry of a mesh.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Mesh {
     /// The name of the mesh.
     pub name: String,
@@ -38,7 +45,7 @@ pub struct Mesh {
 }
 
 /// Represents a joint of the [`Scene`] skeleton. It only supports translation.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Joint {
     /// The translation of the joint, relative to its parent.
     pub translation: Vec3A,
@@ -60,14 +67,14 @@ impl Joint {
 }
 
 /// Represents a keyframe animation sequence.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Animation {
     pub name: String,
     pub frames: Vec<Keyframe>,
 }
 
 /// Represents a skinned vertex of a mesh.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Vertex {
     /// The position of the vertex, relative to the origin.
     pub position: Vec3A,
@@ -81,7 +88,7 @@ pub struct Vertex {
 }
 
 /// Represents a single keyframe of a animation sequence.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Keyframe {
     /// The time step, in seconds, of the frame.
     pub time: f64,

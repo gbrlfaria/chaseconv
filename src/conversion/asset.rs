@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
+
+use anyhow::Result;
 
 pub struct Asset {
     pub bytes: Vec<u8>,
@@ -11,6 +13,11 @@ impl Asset {
             bytes,
             path: path.into(),
         }
+    }
+
+    pub fn from_path(path: &str) -> Result<Self> {
+        let bytes = fs::read(path)?;
+        Ok(Self::new(bytes, path))
     }
 
     /// Get a reference to the asset's path.

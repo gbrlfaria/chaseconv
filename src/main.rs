@@ -1,29 +1,46 @@
-use chaseconv::{conversion::{Asset, Exporter, Importer, Scene, converters}, format::{FrmImporter, GltfExporter, P3mImporter}};
+use std::io;
+use std::io::prelude::*;
+
+use chaseconv::conversion;
 
 fn main() {
-    let importers: Vec<Box<dyn Importer>> = vec![
-        Box::new(P3mImporter::default()),
-        Box::new(FrmImporter::default()),
-    ];
-    let exporters: Vec<Box<dyn Exporter>> = vec![Box::new(GltfExporter::default())];
+    let files: Vec<_> = std::env::args().skip(1).collect();
 
-    // let inputs: Vec<_> = std::env::args().into_iter().skip(1).collect();
+    println!("Trying to convert {} file(s)...\n", files.len());
 
-    let items: Vec<_> = converters().iter().map(|x| x.format).collect();
-    let x = dialoguer::Select::new().default(0).items(&items).interact().unwrap();
+    let converters = conversion::converters();
 
-    // let mut scene = Scene::default();
+    let items: Vec<_> = converters.iter().map(|converter| converter.name).collect();
+    let option = dialoguer::Select::new()
+        .with_prompt("Select the format you want to convert the input files to")
+        .default(0)
+        .items(&items)
+        .interact()
+        .expect("Failed to select converter option");
+    let converter = &converters[option];
 
-    // let path = "./model_darkmage.p3m";
-    // let bytes = std::fs::read(path).unwrap();
-    // P3mImporter {}
-    //     .import(&Asset::new(bytes, path), &mut scene)
-    //     .unwrap();
+    let out_path = dialoguer::Input::new()
+        .with_prompt("Select the output directory")
+        .default(String::from("output/"))
+        .show_default(true)
+        .interact()
+        .expect("Failed to define output path");
 
-    // let exporter = GltfExporter {};
-    // exporter.transform(&mut scene);
-    // let assets = exporter.export(&scene).unwrap();
-    // for asset in &assets {
-    //     std::fs::write(&asset.path(), &asset.bytes).unwrap();
-    // }
+    println!("");
+    converter.convert(&files, &out_path);
+
+    println!("");
+    pause();
+}
+
+fn pause() {
+    let mut stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    // We want the cursor to stay at the end of the line, so we print without a newline and flush manually.
+    write!(stdout, "Press any key to continue...").unwrap();
+    stdout.flush().unwrap();
+
+    // Read a single byte and discard
+    let _ = stdin.read(&mut [0u8]).unwrap();
 }

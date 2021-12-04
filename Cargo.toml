@@ -7,7 +7,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.49"
+anyhow = "1.0.51"
 byteorder = "1.4.3"
 dialoguer = "0.9.0"
 glam = "0.20.1"

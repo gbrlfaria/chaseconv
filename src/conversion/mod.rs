@@ -1,6 +1,8 @@
+use std::{collections::HashMap, fs, path::PathBuf};
+
 use anyhow::Result;
 
-use crate::format::{FrmImporter, GltfExporter, P3mImporter};
+use crate::format::{GltfExporter, GrandChaseImporter};
 
 pub use self::{
     asset::Asset,
@@ -37,32 +39,111 @@ pub trait Exporter {
 }
 
 /// The converter for certain asset format.
+/// A converter will convert any available input format to a specific set of output formats.
 pub struct Converter {
     /// The display name of the output asset format.
-    pub format: &'static str,
-    exporters: Vec<Box<dyn Exporter>>,
+    pub name: &'static str,
+    exporter: Box<dyn Exporter>,
 }
 
-impl Converter {}
+impl Converter {
+    pub fn convert(&self, files: &[String], out_path: &str) {
+        let importers = importers();
+        let importers: HashMap<_, _> = importers
+            .iter()
+            .flat_map(|importer| importer.extensions().iter().map(move |ext| (ext, importer)))
+            .collect();
+
+        let scenes: Vec<_> = files
+            .iter()
+            // Read asset bytes.
+            .map(|file| Asset::from_path(file))
+            // Skip invalid assets.
+            .filter_map(|result| match result {
+                Ok(asset) => Some(asset),
+                Err(err) => {
+                    eprintln!("{}", err.to_string());
+                    None
+                }
+            })
+            // Import supported formats.
+            .filter_map(
+                |asset| match importers.get(&asset.extension().to_lowercase().as_str()) {
+                    Some(importer) => {
+                        let mut scene = Scene::default();
+                        match importer.import(&asset, &mut scene) {
+                            Ok(_) => {
+                                println!(
+                                    "Imported \"{}.{}\" successfully!",
+                                    asset.name(),
+                                    asset.extension()
+                                );
+                                importer.transform(&mut scene);
+                                Some(scene)
+                            }
+                            Err(err) => {
+                                eprintln!(
+                                    "Failed to import \"{}.{}\"! {}",
+                                    asset.name(),
+                                    asset.extension(),
+                                    err.to_string()
+                                );
+                                None
+                            }
+                        }
+                    }
+                    None => None,
+                },
+            )
+            .collect();
+
+        fs::create_dir_all(&out_path)
+            .unwrap_or_else(|err| eprintln!("Failed to create the output directory: {}", err));
+
+        // Merge imported scenes.
+        match scenes.into_iter().reduce(|a, b| a.merge(b)) {
+            Some(mut scene) => {
+                // Export assets.
+                self.exporter.transform(&mut scene);
+                match self.exporter.export(&scene) {
+                    Ok(assets) => {
+                        for asset in assets {
+                            let path = PathBuf::from(out_path).join(asset.path());
+                            fs::write(&path, &asset.bytes).unwrap_or_else(|err| {
+                                eprintln!(
+                                    "Failed to export the asset \"{}.{}\": {}",
+                                    asset.name(),
+                                    asset.extension(),
+                                    err
+                                )
+                            });
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!("Failed to export the scene: {}", err.to_string());
+                    }
+                }
+            }
+            None => {}
+        }
+    }
+}
 
 // Returns all importers available.
 fn importers() -> Vec<Box<dyn Importer>> {
-    vec![
-        Box::new(P3mImporter::default()),
-        Box::new(FrmImporter::default()),
-    ]
+    vec![Box::new(GrandChaseImporter::default())]
 }
 
 /// Returns all converters available.
 pub fn converters() -> Vec<Converter> {
     vec![
         Converter {
-            format: ".P3M/FRM (Grand Chase)",
-            exporters: vec![],
+            name: ".P3M/FRM (Grand Chase)",
+            exporter: Box::new(GltfExporter::default()),
         },
         Converter {
-            format: ".GLB (glTF)",
-            exporters: vec![Box::new(GltfExporter::default())],
+            name: ".GLB (glTF)",
+            exporter: Box::new(GltfExporter::default()),
         },
     ]
 }
