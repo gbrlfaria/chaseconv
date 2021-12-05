@@ -3,10 +3,13 @@ use std::{collections::HashMap, mem};
 use anyhow::Result;
 use byteorder::{WriteBytesExt, LE};
 use glam::{Mat4, Vec4};
-use gltf::json::{
-    self,
-    mesh::{Primitive, Semantic},
-    validation::Checked,
+use gltf::{
+    json::{
+        self,
+        mesh::{Primitive, Semantic},
+        validation::Checked,
+    },
+    Glb,
 };
 
 use crate::conversion::{Animation, Asset, Exporter, Joint, Mesh, Scene};
@@ -22,7 +25,14 @@ impl Exporter for GltfExporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
         let mut root = json::Root::default();
         let mut buffer = Vec::new();
+
         let scene = transform(scene);
+
+        let skeleton_index = insert_scene(&mut root, &scene.skeleton, &scene.meshes);
+        insert_meshes(&mut root, &mut buffer, &scene.meshes)?;
+        insert_skins(&mut root, &mut buffer, &scene, skeleton_index)?;
+        insert_animations(&mut root, &mut buffer, &scene.animations, skeleton_index)?;
+        insert_buffers(&mut root, &buffer);
 
         root.asset = json::Asset {
             generator: Some(format!(
@@ -33,24 +43,18 @@ impl Exporter for GltfExporter {
             ..Default::default()
         };
 
-        let skeleton_index = insert_scene(&mut root, &scene.skeleton, &scene.meshes);
-        insert_meshes(&mut root, &mut buffer, &scene.meshes)?;
-        insert_skins(&mut root, &mut buffer, &scene, skeleton_index)?;
-        insert_animations(&mut root, &mut buffer, &scene.animations, skeleton_index)?;
-        insert_buffers(&mut root, &buffer);
-
         let json_string = json::serialize::to_string(&root)?;
-        // let length = json_string.len() + buffer.len();
-        // let bytes = Glb {
-        //     header: gltf::binary::Header {
-        //         magic: *b"glTF",
-        //         version: 2,
-        //         length: (length + length % 4) as u32,
-        //     },
-        //     json: json_string.into_bytes().into(),
-        //     bin: Some(buffer.into()),
-        // }
-        // .to_vec()?;
+        let ex = calculate_length(&json_string, &buffer);
+        let bytes = Glb {
+            header: gltf::binary::Header {
+                magic: *b"glTF",
+                version: 2,
+                length: calculate_length(&json_string, &buffer) as u32,
+            },
+            json: json_string.into_bytes().into(),
+            bin: Some(buffer.into()),
+        }
+        .to_vec()?;
 
         let mut name = &format!(
             "scene_{}-{}-{}",
@@ -64,11 +68,20 @@ impl Exporter for GltfExporter {
             name = &animation.name
         }
 
-        Ok(vec![
-            Asset::new(json_string.into_bytes(), &format!("{}.gltf", name)),
-            Asset::new(buffer, "buffer0.bin"),
-        ])
+        Ok(vec![Asset::new(bytes, &format!("{}.glb", name))])
     }
+}
+
+fn calculate_length(json: &str, bin: &[u8]) -> usize {
+    const HEADER_SIZE: usize = 12;
+    const CHUNK_HEADER_SIZE: usize = 8;
+
+    let mut length = HEADER_SIZE + CHUNK_HEADER_SIZE + json.len();
+    length += length % 4;
+    length += CHUNK_HEADER_SIZE + bin.len();
+    length += length % 4;
+
+    length
 }
 
 fn transform(scene: &Scene) -> Scene {
@@ -280,7 +293,7 @@ fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) -
 fn insert_buffers(root: &mut json::Root, buffer: &Vec<u8>) {
     root.buffers.push(json::Buffer {
         byte_length: buffer.len() as u32,
-        uri: Some("buffer0.bin".into()),
+        uri: None,
         name: None,
         extensions: None,
         extras: Default::default(),
