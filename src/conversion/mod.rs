@@ -97,12 +97,13 @@ impl Converter {
             )
             .collect();
 
-        fs::create_dir_all(&out_path)
-            .unwrap_or_else(|err| eprintln!("Failed to create the output directory: {}", err));
-
         // Merge imported scenes.
         match scenes.into_iter().reduce(|a, b| a.merge(b)) {
             Some(mut scene) => {
+                fs::create_dir_all(&out_path).unwrap_or_else(|err| {
+                    eprintln!("Failed to create the output directory: {}", err)
+                });
+
                 // Export assets.
                 self.exporter.transform(&mut scene);
                 match self.exporter.export(&scene) {
@@ -124,7 +125,9 @@ impl Converter {
                     }
                 }
             }
-            None => {}
+            None => {
+                println!("No assets were exported")
+            }
         }
     }
 }
