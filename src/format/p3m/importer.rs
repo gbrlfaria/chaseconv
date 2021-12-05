@@ -1,22 +1,31 @@
 use anyhow::{Context, Result};
 use glam::Vec3A;
 
-use crate::conversion::{Asset, Joint, Mesh, Scene, Vertex};
+use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
 
 use super::internal::{AngleBone, P3m, PositionBone, SkinVertex};
 
-pub fn import(asset: &Asset, scene: &mut Scene) -> Result<()> {
-    let p3m = P3m::from_bytes(&asset.bytes)
-        .context("Failed to deserialize the bytes of the P3M asset")?;
+#[derive(Default)]
+pub struct P3mImporter {}
 
-    if scene.skeleton.is_empty() {
-        scene.skeleton = convert_joints(&p3m.position_bones, &p3m.angle_bones);
+impl Importer for P3mImporter {
+    fn import(&self, asset: &Asset, scene: &mut Scene) -> Result<()> {
+        let p3m = P3m::from_bytes(&asset.bytes)
+            .context("Failed to deserialize the bytes of the P3M asset")?;
+
+        if scene.skeleton.is_empty() {
+            scene.skeleton = convert_joints(&p3m.position_bones, &p3m.angle_bones);
+        }
+        scene
+            .meshes
+            .push(convert_mesh(&p3m, asset.name().to_string(), scene));
+
+        Ok(())
     }
-    scene
-        .meshes
-        .push(convert_mesh(&p3m, asset.name().to_string(), scene));
 
-    Ok(())
+    fn extensions(&self) -> &[&str] {
+        &["p3m"]
+    }
 }
 
 fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) -> Vec<Joint> {

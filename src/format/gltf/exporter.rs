@@ -22,6 +22,7 @@ impl Exporter for GltfExporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
         let mut root = json::Root::default();
         let mut buffer = Vec::new();
+        let scene = transform(scene);
 
         root.asset = json::Asset {
             generator: Some(format!(
@@ -55,35 +56,39 @@ impl Exporter for GltfExporter {
             Asset::new(buffer, "buffer0.bin"),
         ])
     }
+}
 
-    fn transform(&self, scene: &mut Scene) {
-        let mut matrix = Mat4::IDENTITY;
-        matrix.z_axis = Vec4::new(0., 0., -1., 0.);
+fn transform(scene: &Scene) -> Scene {
+    let mut scene = scene.clone();
 
-        for mesh in &mut scene.meshes {
-            for vertex in &mut mesh.vertices {
-                vertex.position = matrix.transform_point3a(vertex.position);
-                vertex.normal = matrix.transform_point3a(vertex.normal);
-            }
+    let mut matrix = Mat4::IDENTITY;
+    matrix.z_axis = Vec4::new(0., 0., -1., 0.);
 
-            for i in 0..mesh.indices.len() / 3 {
-                mesh.indices.swap(i * 3 + 1, i * 3 + 2);
-            }
+    for mesh in &mut scene.meshes {
+        for vertex in &mut mesh.vertices {
+            vertex.position = matrix.transform_point3a(vertex.position);
+            vertex.normal = matrix.transform_point3a(vertex.normal);
         }
 
-        for joint in &mut scene.skeleton {
-            joint.translation = matrix.transform_point3a(joint.translation);
+        for i in 0..mesh.indices.len() / 3 {
+            mesh.indices.swap(i * 3 + 1, i * 3 + 2);
         }
+    }
 
-        for animation in &mut scene.animations {
-            for frame in &mut animation.frames {
-                frame.root_translation.z = frame.root_translation.z * -1.;
-                for transform in &mut frame.joint_transforms {
-                    *transform = matrix.mul_mat4(transform).mul_mat4(&matrix);
-                }
+    for joint in &mut scene.skeleton {
+        joint.translation = matrix.transform_point3a(joint.translation);
+    }
+
+    for animation in &mut scene.animations {
+        for frame in &mut animation.frames {
+            frame.root_translation.z = frame.root_translation.z * -1.;
+            for transform in &mut frame.joint_transforms {
+                *transform = matrix.mul_mat4(transform).mul_mat4(&matrix);
             }
         }
     }
+
+    scene
 }
 
 fn insert_skins(

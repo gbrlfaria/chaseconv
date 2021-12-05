@@ -1,21 +1,30 @@
 use anyhow::Context;
 use glam::{Mat4, Vec3A};
 
-use crate::conversion::{Animation, Asset, Keyframe, Scene};
+use crate::conversion::{Animation, Asset, Importer, Keyframe, Scene};
 
 use super::internal::Frm;
 
-pub fn import(asset: &Asset, scene: &mut Scene) -> anyhow::Result<()> {
-    let frm = Frm::from_bytes(&asset.bytes)
-        .context("Failed to deserialize the bytes of the FRM asset")?;
+#[derive(Default)]
+pub struct FrmImporter {}
 
-    let animation = Animation {
-        name: asset.name().to_string(),
-        frames: convert_frames(&frm),
-    };
-    scene.animations.push(animation);
+impl Importer for FrmImporter {
+    fn import(&self, asset: &Asset, scene: &mut Scene) -> anyhow::Result<()> {
+        let frm = Frm::from_bytes(&asset.bytes)
+            .context("Failed to deserialize the bytes of the FRM asset")?;
 
-    Ok(())
+        let animation = Animation {
+            name: asset.name().to_string(),
+            frames: convert_frames(&frm),
+        };
+        scene.animations.push(animation);
+
+        Ok(())
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["frm"]
+    }
 }
 
 fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
@@ -52,7 +61,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::format::grandchase::frm::internal::{Frame, FrmVersion};
+    use crate::format::frm::internal::{Frame, FrmVersion};
 
     use super::*;
 

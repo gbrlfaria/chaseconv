@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::Result;
 
-use crate::format::{GltfExporter, GrandChaseImporter};
+use crate::format::{FrmImporter, GltfExporter, P3mImporter};
 
 pub use self::{
     asset::Asset,
@@ -17,10 +17,6 @@ mod scene;
 pub trait Importer {
     /// Imports an asset file into a scene.
     fn import(&self, asset: &Asset, scene: &mut Scene) -> Result<()>;
-    /// Postprocesses a scene after all its assets are imported. It's usually used to
-    /// transform the scene geometry into the coordinate system of the intermediary
-    /// scene format.
-    fn transform(&self, scene: &mut Scene) {}
     /// Returns the file extensions supported by the importer. These extensions are used to
     /// select the appropriate importer given an asset file.
     ///
@@ -33,9 +29,6 @@ pub trait Importer {
 pub trait Exporter {
     /// Exports a scene into one or more asset files.
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>>;
-    /// Preprocesses a scene before it's exported. It's usually used to
-    /// transform the scene geometry into coordinate system of the output format.
-    fn transform(&self, scene: &mut Scene) {}
 }
 
 /// The converter for certain asset format.
@@ -43,7 +36,7 @@ pub trait Exporter {
 pub struct Converter {
     /// The display name of the output asset format.
     pub name: &'static str,
-    exporter: Box<dyn Exporter>,
+    exporters: Vec<Box<dyn Exporter>>,
 }
 
 impl Converter {
@@ -78,12 +71,11 @@ impl Converter {
                                     asset.name(),
                                     asset.extension()
                                 );
-                                importer.transform(&mut scene);
                                 Some(scene)
                             }
                             Err(err) => {
                                 eprintln!(
-                                    "Failed to import \"{}.{}\"! {}",
+                                    "Failed to import \"{}.{}\": {}",
                                     asset.name(),
                                     asset.extension(),
                                     err.to_string()
@@ -99,29 +91,39 @@ impl Converter {
 
         // Merge imported scenes.
         match scenes.into_iter().reduce(|a, b| a.merge(b)) {
-            Some(mut scene) => {
+            Some(scene) => {
                 fs::create_dir_all(&out_path).unwrap_or_else(|err| {
                     eprintln!("Failed to create the output directory: {}", err)
                 });
 
-                // Export assets.
-                self.exporter.transform(&mut scene);
-                match self.exporter.export(&scene) {
-                    Ok(assets) => {
-                        for asset in assets {
-                            let path = PathBuf::from(out_path).join(asset.path());
-                            fs::write(&path, &asset.bytes).unwrap_or_else(|err| {
-                                eprintln!(
-                                    "Failed to export the asset \"{}.{}\": {}",
-                                    asset.name(),
-                                    asset.extension(),
-                                    err
-                                )
-                            });
+                for exporter in &self.exporters {
+                    // Export assets.
+                    match exporter.export(&scene) {
+                        Ok(assets) => {
+                            for asset in assets {
+                                let path = PathBuf::from(out_path).join(asset.path());
+                                match fs::write(&path, &asset.bytes) {
+                                    Ok(_) => {
+                                        println!(
+                                            "Exported \"{}.{}\" successfully!",
+                                            asset.name(),
+                                            asset.extension()
+                                        );
+                                    }
+                                    Err(err) => {
+                                        eprintln!(
+                                            "Failed to export the asset \"{}.{}\": {}",
+                                            asset.name(),
+                                            asset.extension(),
+                                            err
+                                        )
+                                    }
+                                };
+                            }
                         }
-                    }
-                    Err(err) => {
-                        eprintln!("Failed to export the scene: {}", err.to_string());
+                        Err(err) => {
+                            eprintln!("Failed to export the scene: {}", err.to_string());
+                        }
                     }
                 }
             }
@@ -134,7 +136,10 @@ impl Converter {
 
 // Returns all importers available.
 fn importers() -> Vec<Box<dyn Importer>> {
-    vec![Box::new(GrandChaseImporter::default())]
+    vec![
+        Box::new(FrmImporter::default()),
+        Box::new(P3mImporter::default()),
+    ]
 }
 
 /// Returns all converters available.
@@ -142,11 +147,11 @@ pub fn converters() -> Vec<Converter> {
     vec![
         Converter {
             name: ".P3M/FRM (Grand Chase)",
-            exporter: Box::new(GltfExporter::default()),
+            exporters: vec![],
         },
         Converter {
             name: ".GLB (glTF)",
-            exporter: Box::new(GltfExporter::default()),
+            exporters: vec![Box::new(GltfExporter::default())],
         },
     ]
 }

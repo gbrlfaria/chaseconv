@@ -33,12 +33,13 @@ impl Asset {
             .expect("The name of the asset file is not a valid unicode string")
     }
 
-    pub fn extension(&self) -> &str {
+    pub fn extension(&self) -> String {
         self.path
             .extension()
             .unwrap_or_default()
-            .to_str()
-            .expect("The extension of the asset file is not a valid unicode string")
+            .to_ascii_lowercase()
+            .to_string_lossy()
+            .to_string()
     }
 
     pub fn parent_dir(&self) -> &str {
