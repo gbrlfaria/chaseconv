@@ -17,10 +17,7 @@ use crate::conversion::{Animation, Asset, Exporter, Joint, Mesh, Scene};
 #[derive(Default)]
 pub struct GltfExporter {}
 
-// https://github.com/gltf-rs/gltf/blob/master/examples/export/main.rs
 // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html
-// REFACTOR:
-// TODO(LAST): export as .glb
 impl Exporter for GltfExporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
         let mut root = json::Root::default();
@@ -44,7 +41,6 @@ impl Exporter for GltfExporter {
         };
 
         let json_string = json::serialize::to_string(&root)?;
-        let ex = calculate_length(&json_string, &buffer);
         let bytes = Glb {
             header: gltf::binary::Header {
                 magic: *b"glTF",
