@@ -39,7 +39,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
                 translation: Vec3A::new(
                     prev_root_trans.x + frame.plus_x,
                     frame.pos_y,
-                    prev_root_trans.z + frame.pos_z,
+                    frame.pos_z,
                 ),
                 rotations: frame
                     .bones

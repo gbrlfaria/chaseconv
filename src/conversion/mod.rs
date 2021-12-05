@@ -146,12 +146,12 @@ fn importers() -> Vec<Box<dyn Importer>> {
 pub fn converters() -> Vec<Converter> {
     vec![
         Converter {
-            name: ".P3M/FRM (Grand Chase)",
-            exporters: vec![],
-        },
-        Converter {
             name: ".GLB (glTF)",
             exporters: vec![Box::new(GltfExporter::default())],
+        },
+        Converter {
+            name: ".P3M/FRM (Grand Chase)",
+            exporters: vec![],
         },
     ]
 }
