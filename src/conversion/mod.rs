@@ -128,7 +128,7 @@ impl Converter {
                 }
             }
             None => {
-                println!("No assets were exported")
+                println!("No assets were exported (check the extension of the input files)")
             }
         }
     }
