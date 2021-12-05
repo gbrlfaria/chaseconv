@@ -36,11 +36,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
         .map(|frame| {
             let keyframe = Keyframe {
                 time: current_time,
-                translation: Vec3A::new(
-                    prev_root_trans.x + frame.plus_x,
-                    frame.pos_y,
-                    frame.pos_z,
-                ),
+                translation: Vec3A::new(prev_root_trans.x + frame.plus_x, frame.pos_y, 0.),
                 rotations: frame
                     .bones
                     .iter()
