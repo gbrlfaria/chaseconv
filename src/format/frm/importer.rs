@@ -36,12 +36,12 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
         .map(|frame| {
             let keyframe = Keyframe {
                 time: current_time,
-                root_translation: Vec3A::new(
+                translation: Vec3A::new(
                     prev_root_trans.x + frame.plus_x,
                     frame.pos_y,
                     prev_root_trans.z + frame.pos_z,
                 ),
-                joint_transforms: frame
+                rotations: frame
                     .bones
                     .iter()
                     .map(|transform| Mat4::from_cols_array_2d(transform).transpose())
@@ -50,7 +50,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
 
             // The frame rate of the animation is always 55 FPS.
             current_time += 1. / 55.;
-            prev_root_trans = keyframe.root_translation;
+            prev_root_trans = keyframe.translation;
 
             keyframe
         })
@@ -91,16 +91,16 @@ mod tests {
         let expected = vec![
             Keyframe {
                 time: 0.,
-                root_translation: Vec3A::new(1., 1., 1.),
-                joint_transforms: vec![
+                translation: Vec3A::new(1., 1., 1.),
+                rotations: vec![
                     Mat4::from_cols_array(&[1.; 16]),
                     Mat4::from_cols_array(&[2.; 16]),
                 ],
             },
             Keyframe {
                 time: 0.01818181818181818181818181818182,
-                root_translation: Vec3A::new(2., 1., 2.),
-                joint_transforms: vec![
+                translation: Vec3A::new(2., 1., 2.),
+                rotations: vec![
                     Mat4::from_cols_array(&[3.; 16]),
                     Mat4::from_cols_array(&[4.; 16]),
                 ],

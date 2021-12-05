@@ -73,6 +73,21 @@ pub struct Animation {
     pub frames: Vec<Keyframe>,
 }
 
+impl Animation {
+    pub fn joints(&self) -> Vec<Vec<&Mat4>> {
+        let mut result = Vec::new();
+        for frame in &self.frames {
+            for (index, rotation) in frame.rotations.iter().enumerate() {
+                if index >= result.len() {
+                    result.push(Vec::new());
+                }
+                result[index].push(rotation);
+            }
+        }
+        result
+    }
+}
+
 /// Represents a skinned vertex of a mesh.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Vertex {
@@ -91,13 +106,13 @@ pub struct Vertex {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Keyframe {
     /// The time step, in seconds, of the frame.
-    pub time: f64,
+    pub time: f32,
     /// The translation of applied to the whole skeleton.
-    pub root_translation: Vec3A,
-    /// The list transform matrices for each joint at the current frame.
+    pub translation: Vec3A,
+    /// The list of matrices for each joint at the current frame.
     /// Each matrix in the list should correspond to the joint with same
     /// index in the [`Scene`] skeleton.
-    pub joint_transforms: Vec<Mat4>,
+    pub rotations: Vec<Mat4>,
 }
 
 #[cfg(test)]

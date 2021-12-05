@@ -66,7 +66,7 @@ impl Converter {
                         let mut scene = Scene::default();
                         match importer.import(&asset, &mut scene) {
                             Ok(_) => {
-                                println!(
+                                eprintln!(
                                     "Imported \"{}.{}\" successfully!",
                                     asset.name(),
                                     asset.extension()
@@ -104,7 +104,7 @@ impl Converter {
                                 let path = PathBuf::from(out_path).join(asset.path());
                                 match fs::write(&path, &asset.bytes) {
                                     Ok(_) => {
-                                        println!(
+                                        eprintln!(
                                             "Exported \"{}.{}\" successfully!",
                                             asset.name(),
                                             asset.extension()
@@ -128,7 +128,7 @@ impl Converter {
                 }
             }
             None => {
-                println!("No assets were exported (check the extension of the input files)")
+                eprintln!("No assets were exported (check the extension of the input files)")
             }
         }
     }

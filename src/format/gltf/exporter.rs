@@ -9,7 +9,7 @@ use gltf::json::{
     validation::Checked,
 };
 
-use crate::conversion::{Asset, Exporter, Joint, Mesh, Scene};
+use crate::conversion::{Animation, Asset, Exporter, Joint, Mesh, Scene};
 
 #[derive(Default)]
 pub struct GltfExporter {}
@@ -36,6 +36,7 @@ impl Exporter for GltfExporter {
         let skeleton_index = insert_scene(&mut root, &scene.skeleton, &scene.meshes);
         insert_meshes(&mut root, &mut buffer, &scene.meshes)?;
         insert_skins(&mut root, &mut buffer, &scene, skeleton_index)?;
+        insert_animations(&mut root, &mut buffer, &scene.animations, skeleton_index)?;
         insert_buffers(&mut root, &buffer);
 
         let json_string = json::serialize::to_string(&root)?;
@@ -51,8 +52,20 @@ impl Exporter for GltfExporter {
         // }
         // .to_vec()?;
 
+        let mut name = &format!(
+            "scene_{}-{}-{}",
+            scene.skeleton.len(),
+            scene.meshes.len(),
+            scene.animations.len()
+        );
+        if let Some(mesh) = scene.meshes.first() {
+            name = &mesh.name
+        } else if let Some(animation) = scene.animations.first() {
+            name = &animation.name
+        }
+
         Ok(vec![
-            Asset::new(json_string.into_bytes(), "scene.gltf"),
+            Asset::new(json_string.into_bytes(), &format!("{}.gltf", name)),
             Asset::new(buffer, "buffer0.bin"),
         ])
     }
@@ -81,8 +94,8 @@ fn transform(scene: &Scene) -> Scene {
 
     for animation in &mut scene.animations {
         for frame in &mut animation.frames {
-            frame.root_translation.z = frame.root_translation.z * -1.;
-            for transform in &mut frame.joint_transforms {
+            frame.translation.z = frame.translation.z * -1.;
+            for transform in &mut frame.rotations {
                 *transform = matrix.mul_mat4(transform).mul_mat4(&matrix);
             }
         }
@@ -174,6 +187,74 @@ fn insert_buffers(root: &mut json::Root, buffer: &Vec<u8>) {
         extensions: None,
         extras: Default::default(),
     });
+}
+
+fn insert_animations(
+    root: &mut json::Root,
+    buffer: &mut Vec<u8>,
+    animations: &[Animation],
+    skeleton_index: usize,
+) -> Result<()> {
+    for animation in animations {
+        let mut gltf_animation = json::Animation {
+            name: Some(animation.name.clone()),
+            samplers: Vec::new(),
+            channels: Vec::new(),
+            extensions: None,
+            extras: Default::default(),
+        };
+
+        let time_accessor = insert_time_bytes(root, buffer, animation)?;
+
+        let translations_accessor = insert_translations_bytes(root, buffer, animation)?;
+        gltf_animation.samplers.push(json::animation::Sampler {
+            input: json::Index::new(time_accessor as u32),
+            output: json::Index::new(translations_accessor as u32),
+            interpolation: Checked::Valid(gltf::animation::Interpolation::Linear),
+            extensions: None,
+            extras: Default::default(),
+        });
+        gltf_animation.channels.push(json::animation::Channel {
+            sampler: json::Index::new(gltf_animation.channels.len() as u32),
+            target: json::animation::Target {
+                node: json::Index::new(skeleton_index as u32),
+                path: Checked::Valid(gltf::animation::Property::Translation),
+                extensions: None,
+                extras: Default::default(),
+            },
+            extensions: None,
+            extras: Default::default(),
+        });
+
+        for (index, rotations) in animation.joints().iter().enumerate() {
+            let rotations_accessor = insert_rotations_bytes(root, buffer, rotations)?;
+            gltf_animation.samplers.push(json::animation::Sampler {
+                input: json::Index::new(time_accessor as u32),
+                output: json::Index::new(rotations_accessor as u32),
+                interpolation: Checked::Valid(gltf::animation::Interpolation::Linear),
+                extensions: None,
+                extras: Default::default(),
+            });
+            gltf_animation.channels.push(json::animation::Channel {
+                sampler: json::Index::new(gltf_animation.channels.len() as u32),
+                target: json::animation::Target {
+                    // The index of the iteration corresponds to the index of the node hierarchy
+                    // because joints are the first things to be inserted, and they are insserted
+                    // in order.
+                    node: json::Index::new(index as u32),
+                    path: Checked::Valid(gltf::animation::Property::Rotation),
+                    extensions: None,
+                    extras: Default::default(),
+                },
+                extensions: None,
+                extras: Default::default(),
+            });
+        }
+
+        root.animations.push(gltf_animation);
+    }
+
+    Ok(())
 }
 
 fn insert_positions_bytes(
@@ -520,6 +601,144 @@ fn insert_inverse_bind_bytes(
     Ok(root.accessors.len() - 1)
 }
 
+fn insert_time_bytes(
+    root: &mut json::Root,
+    buffer: &mut Vec<u8>,
+    animation: &Animation,
+) -> Result<usize> {
+    let accessor = json::Accessor {
+        buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
+        byte_offset: 0,
+        count: animation.frames.len() as u32,
+        type_: Checked::Valid(json::accessor::Type::Scalar),
+        component_type: Checked::Valid(json::accessor::GenericComponentType(
+            json::accessor::ComponentType::F32,
+        )),
+        min: None,
+        max: None,
+        name: None,
+        normalized: false,
+        sparse: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    align_to(buffer, mem::size_of::<f32>());
+    let view = json::buffer::View {
+        buffer: json::Index::new(root.buffers.len() as u32),
+        byte_offset: Some(buffer.len() as u32),
+        byte_length: (animation.frames.len() * mem::size_of::<f32>()) as u32,
+        byte_stride: None,
+        name: None,
+        target: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    for frame in &animation.frames {
+        buffer.write_f32::<LE>(frame.time)?;
+    }
+
+    root.accessors.push(accessor);
+    root.buffer_views.push(view);
+
+    Ok(root.accessors.len() - 1)
+}
+
+fn insert_translations_bytes(
+    root: &mut json::Root,
+    buffer: &mut Vec<u8>,
+    animation: &Animation,
+) -> Result<usize> {
+    let accessor = json::Accessor {
+        buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
+        byte_offset: 0,
+        count: animation.frames.len() as u32,
+        type_: Checked::Valid(json::accessor::Type::Vec3),
+        component_type: Checked::Valid(json::accessor::GenericComponentType(
+            json::accessor::ComponentType::F32,
+        )),
+        min: None,
+        max: None,
+        name: None,
+        normalized: false,
+        sparse: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    align_to(buffer, mem::size_of::<f32>());
+    let view = json::buffer::View {
+        buffer: json::Index::new(root.buffers.len() as u32),
+        byte_offset: Some(buffer.len() as u32),
+        byte_length: (animation.frames.len() * mem::size_of::<[f32; 3]>()) as u32,
+        byte_stride: None,
+        name: None,
+        target: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    for frame in &animation.frames {
+        for &coordinate in frame.translation.as_ref() {
+            buffer.write_f32::<LE>(coordinate)?;
+        }
+    }
+
+    root.accessors.push(accessor);
+    root.buffer_views.push(view);
+
+    Ok(root.accessors.len() - 1)
+}
+
+fn insert_rotations_bytes(
+    root: &mut json::Root,
+    buffer: &mut Vec<u8>,
+    rotations: &[&Mat4],
+) -> Result<usize> {
+    let accessor = json::Accessor {
+        buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
+        byte_offset: 0,
+        count: rotations.len() as u32,
+        type_: Checked::Valid(json::accessor::Type::Vec4),
+        component_type: Checked::Valid(json::accessor::GenericComponentType(
+            json::accessor::ComponentType::F32,
+        )),
+        min: None,
+        max: None,
+        name: None,
+        normalized: false,
+        sparse: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    align_to(buffer, mem::size_of::<f32>());
+    let view = json::buffer::View {
+        buffer: json::Index::new(root.buffers.len() as u32),
+        byte_offset: Some(buffer.len() as u32),
+        byte_length: (rotations.len() * mem::size_of::<[f32; 4]>()) as u32,
+        byte_stride: None,
+        name: None,
+        target: None,
+        extensions: None,
+        extras: Default::default(),
+    };
+
+    for matrix in rotations {
+        let (_, rotation, _) = matrix.to_scale_rotation_translation();
+        for &value in rotation.as_ref() {
+            buffer.write_f32::<LE>(value)?;
+        }
+    }
+
+    root.accessors.push(accessor);
+    root.buffer_views.push(view);
+
+    Ok(root.accessors.len() - 1)
+}
+
+// TODO: Move UP
 /// Converts and inserts the scene and its nodes into the json.
 /// Returns the index of the root node of the skeleton in the node hierarchy.
 fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> usize {
