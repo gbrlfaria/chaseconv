@@ -3,10 +3,11 @@ use std::io::prelude::*;
 
 use chaseconv::conversion;
 
+// TODO: add CLI.
 fn main() {
     let files: Vec<_> = std::env::args().skip(1).collect();
 
-    println!("Trying to convert {} file(s)...\n", files.len());
+    eprintln!("Trying to convert {} file(s)...\n", files.len());
 
     let converters = conversion::converters();
 
@@ -26,10 +27,10 @@ fn main() {
         .interact()
         .expect("Failed to define output path");
 
-    println!("");
+    eprintln!("");
     converter.convert(&files, &out_path);
 
-    println!("");
+    eprintln!("");
     pause();
 }
 
