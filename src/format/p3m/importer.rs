@@ -13,9 +13,7 @@ impl Importer for P3mImporter {
         let p3m = P3m::from_bytes(&asset.bytes)
             .context("Failed to deserialize the bytes of the P3M asset")?;
 
-        if scene.skeleton.is_empty() {
-            scene.skeleton = convert_joints(&p3m.position_bones, &p3m.angle_bones);
-        }
+        scene.skeleton = convert_joints(&p3m.position_bones, &p3m.angle_bones);
         scene
             .meshes
             .push(convert_mesh(&p3m, asset.name().to_string(), scene));
