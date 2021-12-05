@@ -44,7 +44,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
                 rotations: frame
                     .bones
                     .iter()
-                    .map(|transform| Mat4::from_cols_array_2d(transform).transpose())
+                    .map(|transform| Mat4::from_cols_array_2d(transform))
                     .collect(),
             };
 

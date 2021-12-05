@@ -95,8 +95,8 @@ fn transform(scene: &Scene) -> Scene {
     for animation in &mut scene.animations {
         for frame in &mut animation.frames {
             frame.translation.z = frame.translation.z * -1.;
-            for transform in &mut frame.rotations {
-                *transform = matrix.mul_mat4(transform).mul_mat4(&matrix);
+            for rotation in &mut frame.rotations {
+                *rotation = matrix.mul_mat4(rotation).mul_mat4(&matrix.inverse());
             }
         }
     }
@@ -614,8 +614,26 @@ fn insert_time_bytes(
         component_type: Checked::Valid(json::accessor::GenericComponentType(
             json::accessor::ComponentType::F32,
         )),
-        min: None,
-        max: None,
+        min: Some(
+            [animation
+                .frames
+                .iter()
+                .map(|f| f.time)
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap_or_default()]
+            .as_ref()
+            .into(),
+        ),
+        max: Some(
+            [animation
+                .frames
+                .iter()
+                .map(|f| f.time)
+                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap_or_default()]
+            .as_ref()
+            .into(),
+        ),
         name: None,
         normalized: false,
         sparse: None,
