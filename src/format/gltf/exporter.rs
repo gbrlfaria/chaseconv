@@ -104,6 +104,104 @@ fn transform(scene: &Scene) -> Scene {
     scene
 }
 
+/// Converts and inserts the scene and its nodes into the json.
+/// Returns the index of the root node of the skeleton in the node hierarchy.
+fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> usize {
+    let mut nodes = Vec::new();
+
+    let skeleton_node = push_skeleton_nodes(&mut root.nodes, skeleton);
+    nodes.push(skeleton_node);
+    for (index, mesh) in meshes.iter().enumerate() {
+        let mesh_node = push_mesh_node(&mut root.nodes, mesh, index as u32);
+        nodes.push(mesh_node);
+    }
+
+    root.scene = Some(json::Index::new(0));
+    root.scenes.push(json::Scene {
+        nodes: nodes
+            .iter()
+            .map(|&node| json::Index::new(node as u32))
+            .collect(),
+        name: None,
+        extensions: None,
+        extras: Default::default(),
+    });
+
+    skeleton_node
+}
+
+fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize {
+    let mut roots = Vec::new();
+
+    let offset = nodes.len() as u32;
+    for (index, joint) in skeleton.iter().enumerate() {
+        if joint.parent.is_none() {
+            roots.push(offset + index as u32)
+        }
+
+        nodes.push(json::Node {
+            name: Some(format!("joint_{}", index)),
+            children: if joint.children.len() > 0 {
+                Some(
+                    joint
+                        .children
+                        .iter()
+                        .map(|&child| json::Index::new(offset + child as u32))
+                        .collect(),
+                )
+            } else {
+                None
+            },
+            translation: Some(joint.translation.into()),
+            camera: None,
+            extensions: None,
+            matrix: None,
+            mesh: None,
+            rotation: None,
+            scale: None,
+            skin: None,
+            weights: None,
+            extras: Default::default(),
+        });
+    }
+
+    nodes.push(json::Node {
+        name: Some(String::from("skeleton")),
+        children: Some(roots.iter().map(|&root| json::Index::new(root)).collect()),
+        translation: None,
+        camera: None,
+        extensions: None,
+        matrix: None,
+        mesh: None,
+        rotation: None,
+        scale: None,
+        skin: None,
+        weights: None,
+        extras: Default::default(),
+    });
+
+    nodes.len() - 1
+}
+
+fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32) -> usize {
+    nodes.push(json::Node {
+        name: Some(format!("mesh_{}", mesh.name)),
+        mesh: Some(json::Index::new(index)),
+        skin: Some(json::Index::new(0)),
+        children: None,
+        translation: None,
+        camera: None,
+        extensions: None,
+        matrix: None,
+        rotation: None,
+        scale: None,
+        weights: None,
+        extras: Default::default(),
+    });
+
+    nodes.len() - 1
+}
+
 fn insert_skins(
     root: &mut json::Root,
     buffer: &mut Vec<u8>,
@@ -754,105 +852,6 @@ fn insert_rotations_bytes(
     root.buffer_views.push(view);
 
     Ok(root.accessors.len() - 1)
-}
-
-// TODO: Move UP
-/// Converts and inserts the scene and its nodes into the json.
-/// Returns the index of the root node of the skeleton in the node hierarchy.
-fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> usize {
-    let mut nodes = Vec::new();
-
-    let skeleton_node = push_skeleton_nodes(&mut root.nodes, skeleton);
-    nodes.push(skeleton_node);
-    for (index, mesh) in meshes.iter().enumerate() {
-        let mesh_node = push_mesh_node(&mut root.nodes, mesh, index as u32);
-        nodes.push(mesh_node);
-    }
-
-    root.scene = Some(json::Index::new(0));
-    root.scenes.push(json::Scene {
-        nodes: nodes
-            .iter()
-            .map(|&node| json::Index::new(node as u32))
-            .collect(),
-        name: None,
-        extensions: None,
-        extras: Default::default(),
-    });
-
-    skeleton_node
-}
-
-fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize {
-    let mut roots = Vec::new();
-
-    let offset = nodes.len() as u32;
-    for (index, joint) in skeleton.iter().enumerate() {
-        if joint.parent.is_none() {
-            roots.push(offset + index as u32)
-        }
-
-        nodes.push(json::Node {
-            name: Some(format!("joint_{}", index)),
-            children: if joint.children.len() > 0 {
-                Some(
-                    joint
-                        .children
-                        .iter()
-                        .map(|&child| json::Index::new(offset + child as u32))
-                        .collect(),
-                )
-            } else {
-                None
-            },
-            translation: Some(joint.translation.into()),
-            camera: None,
-            extensions: None,
-            matrix: None,
-            mesh: None,
-            rotation: None,
-            scale: None,
-            skin: None,
-            weights: None,
-            extras: Default::default(),
-        });
-    }
-
-    nodes.push(json::Node {
-        name: Some(String::from("skeleton")),
-        children: Some(roots.iter().map(|&root| json::Index::new(root)).collect()),
-        translation: None,
-        camera: None,
-        extensions: None,
-        matrix: None,
-        mesh: None,
-        rotation: None,
-        scale: None,
-        skin: None,
-        weights: None,
-        extras: Default::default(),
-    });
-
-    nodes.len() - 1
-}
-
-fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32) -> usize {
-    nodes.push(json::Node {
-        name: Some(format!("mesh_{}", mesh.name)),
-        mesh: Some(json::Index::new(index)),
-        skin: Some(json::Index::new(0)),
-        children: None,
-        translation: None,
-        camera: None,
-        extensions: None,
-        matrix: None,
-        rotation: None,
-        scale: None,
-        weights: None,
-        extras: Default::default(),
-    });
-
-    nodes.len() - 1
 }
 
 /// Adds zeros to the buffer until it is n-byte aligned.
