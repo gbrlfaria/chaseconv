@@ -30,16 +30,7 @@ pub struct P3m {
 
 impl P3m {
     pub fn new() -> Self {
-        Self {
-            // Remove the null terminator.
-            version_header: String::from(&VERSION_HEADER[..VERSION_HEADER.len() - 1]),
-            position_bones: Vec::new(),
-            angle_bones: Vec::new(),
-            texture_name: String::new(),
-            faces: Vec::new(),
-            skin_vertices: Vec::new(),
-            mesh_vertices: Vec::new(),
-        }
+        Default::default()
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
@@ -117,6 +108,21 @@ impl P3m {
     }
 }
 
+impl Default for P3m {
+    fn default() -> Self {
+        Self {
+            // Remove the null terminator.
+            version_header: String::from(&VERSION_HEADER[..VERSION_HEADER.len() - 1]),
+            position_bones: Vec::new(),
+            angle_bones: Vec::new(),
+            texture_name: String::new(),
+            faces: Vec::new(),
+            skin_vertices: Vec::new(),
+            mesh_vertices: Vec::new(),
+        }
+    }
+}
+
 /// A translation modifier that applies to a set of children angle bones.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PositionBone {
@@ -128,10 +134,7 @@ pub struct PositionBone {
 
 impl PositionBone {
     pub fn new() -> Self {
-        Self {
-            position: [0.; 3],
-            children: Vec::new(),
-        }
+        Default::default()
     }
 
     fn from_reader(reader: &mut Cursor<&[u8]>) -> Result<Self> {
@@ -172,6 +175,15 @@ impl PositionBone {
     }
 }
 
+impl Default for PositionBone {
+    fn default() -> Self {
+        Self {
+            position: [0.; 3],
+            children: Vec::new(),
+        }
+    }
+}
+
 /// A rotation modifier that applies to a set of children position bones. All rotations are zeroed
 /// by default.
 /// These are the actual bones of the skeleton and what skin vertices and keyframe bone indices
@@ -188,11 +200,7 @@ pub struct AngleBone {
 
 impl AngleBone {
     pub fn new() -> Self {
-        Self {
-            position: [0.; 3],
-            scale: 0.,
-            children: Vec::new(),
-        }
+        Default::default()
     }
 
     fn from_reader(reader: &mut Cursor<&[u8]>) -> Result<Self> {
@@ -235,6 +243,16 @@ impl AngleBone {
     }
 }
 
+impl Default for AngleBone {
+    fn default() -> Self {
+        Self {
+            position: [0.; 3],
+            scale: 0.,
+            children: Vec::new(),
+        }
+    }
+}
+
 /// A skinned vertex of the mesh. Oficially, each vertex can only be influenced by a single bone,
 /// always with max intensity.
 #[derive(Debug, PartialEq)]
@@ -254,13 +272,7 @@ pub struct SkinVertex {
 
 impl SkinVertex {
     pub fn new() -> Self {
-        Self {
-            position: [0.; 3],
-            weight: 1.,
-            bone_index: INVALID_BONE_INDEX,
-            normal: [0.; 3],
-            uv: [0.; 2],
-        }
+        Default::default()
     }
 
     fn from_reader(reader: &mut Cursor<&[u8]>) -> Result<Self> {
@@ -301,6 +313,18 @@ impl SkinVertex {
     }
 }
 
+impl Default for SkinVertex {
+    fn default() -> Self {
+        Self {
+            position: [0.; 3],
+            weight: 1.,
+            bone_index: INVALID_BONE_INDEX,
+            normal: [0.; 3],
+            uv: [0.; 2],
+        }
+    }
+}
+
 /// An unskinned vertex of the mesh.
 #[derive(Debug, PartialEq)]
 pub struct MeshVertex {
@@ -314,11 +338,7 @@ pub struct MeshVertex {
 
 impl MeshVertex {
     pub fn new() -> Self {
-        Self {
-            position: [0.; 3],
-            normal: [0.; 3],
-            uv: [0.; 2],
-        }
+        Default::default()
     }
 
     fn from_reader(reader: &mut Cursor<&[u8]>) -> Result<Self> {
@@ -343,6 +363,16 @@ impl MeshVertex {
         }
 
         Ok(())
+    }
+}
+
+impl Default for MeshVertex {
+    fn default() -> Self {
+        Self {
+            position: [0.; 3],
+            normal: [0.; 3],
+            uv: [0.; 2],
+        }
     }
 }
 
@@ -455,7 +485,7 @@ mod tests {
     #[test]
     fn read() {
         let (expected, bytes) = data();
-        let actual = P3m::from_bytes(&bytes).unwrap();
+        let actual = P3m::from_bytes(bytes).unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -469,7 +499,7 @@ mod tests {
     }
 
     fn data() -> (P3m, &'static [u8]) {
-        let mut p3m = P3m::new();
+        let mut p3m = P3m::default();
         p3m.position_bones = vec![
             PositionBone {
                 position: [0., 0., 0.],

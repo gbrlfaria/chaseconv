@@ -48,7 +48,7 @@ pub struct Mesh {
 }
 
 /// Represents a joint of the [`Scene`] skeleton. It only supports translation.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct Joint {
     /// The translation of the joint, relative to its parent.
     pub translation: Vec3A,
@@ -61,11 +61,7 @@ pub struct Joint {
 
 impl Joint {
     pub fn new() -> Self {
-        Self {
-            translation: Vec3A::new(0., 0., 0.),
-            parent: None,
-            children: Vec::new(),
-        }
+        Self::default()
     }
 }
 

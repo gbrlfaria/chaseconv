@@ -92,7 +92,7 @@ mod tests {
                 ],
             },
             Keyframe {
-                time: 0.01818181818181818181818181818182,
+                time: 0.018181818,
                 translation: Vec3A::new(2., 1., 0.),
                 transforms: vec![
                     Mat4::from_cols_array(&[3.; 16]),

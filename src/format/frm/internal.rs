@@ -119,13 +119,7 @@ pub struct Frame {
 
 impl Frame {
     pub fn new() -> Self {
-        Self {
-            option: 0,
-            plus_x: 0.,
-            pos_y: 0.,
-            pos_z: 0.,
-            bones: Vec::new(),
-        }
+        Default::default()
     }
 
     pub fn from_reader(reader: &mut Cursor<&[u8]>, num_bones: u16) -> Result<Self> {
@@ -163,6 +157,18 @@ impl Frame {
     }
 }
 
+impl Default for Frame {
+    fn default() -> Self {
+        Self {
+            option: 0,
+            plus_x: 0.,
+            pos_y: 0.,
+            pos_z: 0.,
+            bones: Vec::new(),
+        }
+    }
+}
+
 /// Specifies the version and format of the FRM file.
 #[derive(Debug, PartialEq, Eq)]
 pub enum FrmVersion {
@@ -179,7 +185,7 @@ mod tests {
     #[test]
     fn read_v1_0() {
         let (expected, bytes) = data_v1_0();
-        let actual = Frm::from_bytes(&bytes).unwrap();
+        let actual = Frm::from_bytes(bytes).unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -195,7 +201,7 @@ mod tests {
     #[test]
     fn read_v1_1() {
         let (expected, bytes) = data_v1_1();
-        let actual = Frm::from_bytes(&bytes).unwrap();
+        let actual = Frm::from_bytes(bytes).unwrap();
 
         assert_eq!(expected, actual);
     }
