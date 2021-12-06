@@ -1,5 +1,5 @@
-pub use importer::P3mImporter;
+pub use {exporter::P3mExporter, importer::P3mImporter};
 
-pub mod internal;
 pub mod exporter;
 pub mod importer;
+pub mod internal;

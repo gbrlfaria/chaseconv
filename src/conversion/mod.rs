@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::Result;
 
-use crate::format::{FrmImporter, GltfExporter, P3mImporter};
+use crate::format::{frm::FrmExporter, p3m::P3mExporter, FrmImporter, GltfExporter, P3mImporter};
 
 pub use self::{
     asset::Asset,
@@ -161,7 +161,10 @@ pub fn converters() -> Vec<Converter> {
         },
         Converter {
             name: ".P3M/FRM (Grand Chase)",
-            exporters: vec![],
+            exporters: vec![
+                Box::new(P3mExporter::default()),
+                Box::new(FrmExporter::default()),
+            ],
         },
     ]
 }

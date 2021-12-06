@@ -1,5 +1,5 @@
-pub use importer::FrmImporter;
+pub use {exporter::FrmExporter, importer::FrmImporter};
 
-pub mod internal;
 pub mod exporter;
 pub mod importer;
+pub mod internal;
