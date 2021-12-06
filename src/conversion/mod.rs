@@ -47,7 +47,7 @@ impl Converter {
             .flat_map(|importer| importer.extensions().iter().map(move |ext| (ext, importer)))
             .collect();
 
-        let scenes: Vec<_> = files
+        let scenes = files
             .iter()
             // Read asset bytes.
             .map(|file| Asset::from_path(file))
@@ -86,8 +86,7 @@ impl Converter {
                         None
                     }
                 },
-            )
-            .collect();
+            );
 
         // Merge imported scenes.
         match scenes.into_iter().reduce(|a, b| a.merge(b)) {

@@ -99,7 +99,7 @@ fn transform(scene: &Scene) -> Scene {
 
     for animation in &mut scene.animations {
         for frame in &mut animation.frames {
-            frame.translation.z = frame.translation.z * -1.;
+            frame.translation.z *= -1.;
             for transform in &mut frame.transforms {
                 *transform = matrix.mul_mat4(transform).mul_mat4(&matrix.inverse());
             }
@@ -146,7 +146,7 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
 
         nodes.push(json::Node {
             name: Some(format!("joint_{}", index)),
-            children: if joint.children.len() > 0 {
+            children: if !joint.children.is_empty() {
                 Some(
                     joint
                         .children
@@ -282,7 +282,7 @@ fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) -
     Ok(())
 }
 
-fn insert_buffers(root: &mut json::Root, buffer: &Vec<u8>) {
+fn insert_buffers(root: &mut json::Root, buffer: &[u8]) {
     root.buffers.push(json::Buffer {
         byte_length: buffer.len() as u32,
         uri: None,

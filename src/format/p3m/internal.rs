@@ -4,7 +4,7 @@ use anyhow::Result;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 
 // The typo is intentional and follows the string used in the official assets.
-const VERSION_HEADER: &'static str = "Perfact 3D Model (Ver 0.5)\0";
+const VERSION_HEADER: &str = "Perfact 3D Model (Ver 0.5)\0";
 const INVALID_BONE_INDEX: u8 = 255;
 const TEXTURE_NAME_LEN: usize = 260;
 
@@ -90,10 +90,10 @@ impl P3m {
         bytes.write_u8(self.angle_bones.len() as u8)?;
 
         for position_bone in &self.position_bones {
-            position_bone.into_bytes(&mut bytes)?;
+            position_bone.to_bytes(&mut bytes)?;
         }
         for angle_bone in &self.angle_bones {
-            angle_bone.into_bytes(&mut bytes)?;
+            angle_bone.to_bytes(&mut bytes)?;
         }
 
         bytes.write_u16::<LE>(self.skin_vertices.len() as u16)?;
@@ -107,10 +107,10 @@ impl P3m {
             }
         }
         for skin_vertex in &self.skin_vertices {
-            skin_vertex.into_bytes(&mut bytes)?;
+            skin_vertex.to_bytes(&mut bytes)?;
         }
         for mesh_vertex in &self.mesh_vertices {
-            mesh_vertex.into_bytes(&mut bytes)?;
+            mesh_vertex.to_bytes(&mut bytes)?;
         }
 
         Ok(bytes)
@@ -152,7 +152,7 @@ impl PositionBone {
         Ok(position_bone)
     }
 
-    fn into_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
+    fn to_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
         for &coordinate in &self.position {
             bytes.write_f32::<LE>(coordinate)?;
         }
@@ -214,7 +214,7 @@ impl AngleBone {
         Ok(angle_bone)
     }
 
-    fn into_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
+    fn to_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
         for &coordinate in &self.position {
             bytes.write_f32::<LE>(coordinate)?;
         }
@@ -279,7 +279,7 @@ impl SkinVertex {
         Ok(skin_vertex)
     }
 
-    fn into_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
+    fn to_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
         for &coordinate in &self.position {
             bytes.write_f32::<LE>(coordinate)?;
         }
@@ -331,7 +331,7 @@ impl MeshVertex {
         Ok(mesh_vertex)
     }
 
-    fn into_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
+    fn to_bytes(&self, bytes: &mut Vec<u8>) -> Result<()> {
         for &coordinate in &self.position {
             bytes.write_f32::<LE>(coordinate)?;
         }
@@ -354,7 +354,7 @@ mod util {
     /// Reads certain amount of bytes into a string. The returned string gets truncated at the
     /// first null terminator in the byte sequence read, if there is any.
     pub fn read_string(reader: &mut Cursor<&[u8]>, max_len: usize) -> Result<String> {
-        let mut bytes = vec![0 as u8; max_len];
+        let mut bytes = vec![0; max_len];
         reader.read_exact(&mut bytes)?;
 
         // Truncate the string starting at the null terminator.
@@ -371,7 +371,7 @@ mod util {
     /// length allowed, the remaining bytes are filled with zero. If it's longer, it's truncated.
     pub fn write_string(bytes: &mut Vec<u8>, string: &str, max_len: usize) -> Result<()> {
         let len = usize::min(string.len(), max_len);
-        bytes.write(string[0..len].as_bytes())?;
+        bytes.write_all(string[0..len].as_bytes())?;
 
         // Set the remaining bytes to zero, if any.
         for _ in 0..(max_len - len) {

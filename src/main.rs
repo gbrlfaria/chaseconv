@@ -27,10 +27,10 @@ fn main() {
         .interact()
         .expect("Failed to define output path");
 
-    eprintln!("");
+    eprintln!();
     converter.convert(&files, &out_path);
 
-    eprintln!("");
+    eprintln!();
     pause();
 }
 

@@ -37,11 +37,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
             let keyframe = Keyframe {
                 time: current_time,
                 translation: Vec3A::new(prev_root_trans.x + frame.plus_x, frame.pos_y, 0.),
-                transforms: frame
-                    .bones
-                    .iter()
-                    .map(|transform| Mat4::from_cols_array_2d(transform))
-                    .collect(),
+                transforms: frame.bones.iter().map(Mat4::from_cols_array_2d).collect(),
             };
 
             // The frame rate of the animation is always 55 FPS.

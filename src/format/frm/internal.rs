@@ -73,7 +73,7 @@ impl Frm {
                 }
             }
             FrmVersion::V1_1 => {
-                bytes.write(VERSION_HEADER.as_bytes())?;
+                bytes.write_all(VERSION_HEADER.as_bytes())?;
                 bytes.write_u16::<LE>(self.frames.len() as u16)?;
                 bytes.write_u16::<LE>(self.num_bones() as u16)?;
 
