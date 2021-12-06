@@ -52,17 +52,13 @@ impl Exporter for GltfExporter {
         }
         .to_vec()?;
 
-        let mut name = &format!(
-            "scene_{}-{}-{}",
-            scene.skeleton.len(),
-            scene.meshes.len(),
-            scene.animations.len()
-        );
-        if let Some(mesh) = scene.meshes.first() {
-            name = &mesh.name
+        let name = if let Some(mesh) = scene.meshes.first() {
+            &mesh.name
         } else if let Some(animation) = scene.animations.first() {
-            name = &animation.name
-        }
+            &animation.name
+        } else {
+            "model"
+        };
 
         Ok(vec![Asset::new(bytes, &format!("{}.glb", name))])
     }
@@ -357,7 +353,7 @@ fn insert_animations(
                 extras: Default::default(),
             });
 
-            // TODO: translations of individual joints are not currently supported for exporting. 
+            // TODO: translations of individual joints are not currently supported for exporting.
         }
 
         root.animations.push(gltf_animation);
