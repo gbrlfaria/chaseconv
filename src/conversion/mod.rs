@@ -64,27 +64,27 @@ impl Converter {
                 |asset| match importers.get(&asset.extension().to_lowercase().as_str()) {
                     Some(importer) => {
                         let mut scene = Scene::default();
+
+                        eprint!("Importing \"{}.{}\"... ", asset.name(), asset.extension());
                         match importer.import(&asset, &mut scene) {
                             Ok(_) => {
-                                eprintln!(
-                                    "Imported \"{}.{}\" successfully!",
-                                    asset.name(),
-                                    asset.extension()
-                                );
+                                eprintln!("Success!",);
                                 Some(scene)
                             }
                             Err(err) => {
-                                eprintln!(
-                                    "Failed to import \"{}.{}\": {}",
-                                    asset.name(),
-                                    asset.extension(),
-                                    err.to_string()
-                                );
+                                eprintln!("Failure: {}", err.to_string());
                                 None
                             }
                         }
                     }
-                    None => None,
+                    None => {
+                        eprintln!(
+                            "Skipped \"{}.{}: unsupported extension\"",
+                            asset.name(),
+                            asset.extension()
+                        );
+                        None
+                    }
                 },
             )
             .collect();
@@ -138,7 +138,7 @@ impl Converter {
                 }
             }
             None => {
-                eprintln!("No assets were exported (check the extension of the input files)")
+                eprintln!("No assets were exported")
             }
         }
     }
