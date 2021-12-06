@@ -83,7 +83,7 @@ mod tests {
         let expected = vec![
             Keyframe {
                 time: 0.,
-                translation: Vec3A::new(1., 1., 1.),
+                translation: Vec3A::new(1., 1., 0.),
                 transforms: vec![
                     Mat4::from_cols_array(&[1.; 16]),
                     Mat4::from_cols_array(&[2.; 16]),
@@ -91,7 +91,7 @@ mod tests {
             },
             Keyframe {
                 time: 0.01818181818181818181818181818182,
-                translation: Vec3A::new(2., 1., 2.),
+                translation: Vec3A::new(2., 1., 0.),
                 transforms: vec![
                     Mat4::from_cols_array(&[3.; 16]),
                     Mat4::from_cols_array(&[4.; 16]),
