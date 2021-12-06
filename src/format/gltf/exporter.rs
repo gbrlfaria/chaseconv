@@ -104,8 +104,8 @@ fn transform(scene: &Scene) -> Scene {
     for animation in &mut scene.animations {
         for frame in &mut animation.frames {
             frame.translation.z = frame.translation.z * -1.;
-            for rotation in &mut frame.rotations {
-                *rotation = matrix.mul_mat4(rotation).mul_mat4(&matrix.inverse());
+            for transform in &mut frame.transforms {
+                *transform = matrix.mul_mat4(transform).mul_mat4(&matrix.inverse());
             }
         }
     }
@@ -333,8 +333,8 @@ fn insert_animations(
             extras: Default::default(),
         });
 
-        for (index, rotations) in animation.joints().iter().enumerate() {
-            let rotations_accessor = insert_rotations_bytes(root, buffer, rotations)?;
+        for (index, transforms) in animation.joints().iter().enumerate() {
+            let rotations_accessor = insert_rotations_bytes(root, buffer, transforms)?;
             gltf_animation.samplers.push(json::animation::Sampler {
                 input: json::Index::new(time_accessor as u32),
                 output: json::Index::new(rotations_accessor as u32),
@@ -356,6 +356,8 @@ fn insert_animations(
                 extensions: None,
                 extras: Default::default(),
             });
+
+            // TODO: translations of individual joints are not currently supported for exporting. 
         }
 
         root.animations.push(gltf_animation);

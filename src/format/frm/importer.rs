@@ -37,7 +37,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
             let keyframe = Keyframe {
                 time: current_time,
                 translation: Vec3A::new(prev_root_trans.x + frame.plus_x, frame.pos_y, 0.),
-                rotations: frame
+                transforms: frame
                     .bones
                     .iter()
                     .map(|transform| Mat4::from_cols_array_2d(transform))
@@ -88,7 +88,7 @@ mod tests {
             Keyframe {
                 time: 0.,
                 translation: Vec3A::new(1., 1., 1.),
-                rotations: vec![
+                transforms: vec![
                     Mat4::from_cols_array(&[1.; 16]),
                     Mat4::from_cols_array(&[2.; 16]),
                 ],
@@ -96,7 +96,7 @@ mod tests {
             Keyframe {
                 time: 0.01818181818181818181818181818182,
                 translation: Vec3A::new(2., 1., 2.),
-                rotations: vec![
+                transforms: vec![
                     Mat4::from_cols_array(&[3.; 16]),
                     Mat4::from_cols_array(&[4.; 16]),
                 ],

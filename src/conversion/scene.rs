@@ -80,7 +80,7 @@ impl Animation {
     pub fn joints(&self) -> Vec<Vec<&Mat4>> {
         let mut result = Vec::new();
         for frame in &self.frames {
-            for (index, rotation) in frame.rotations.iter().enumerate() {
+            for (index, rotation) in frame.transforms.iter().enumerate() {
                 if index >= result.len() {
                     result.push(Vec::new());
                 }
@@ -115,7 +115,7 @@ pub struct Keyframe {
     /// The list of matrices for each joint at the current frame.
     /// Each matrix in the list should correspond to the joint with same
     /// index in the [`Scene`] skeleton.
-    pub rotations: Vec<Mat4>,
+    pub transforms: Vec<Mat4>,
 }
 
 #[cfg(test)]
