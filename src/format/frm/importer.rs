@@ -36,6 +36,8 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
         .map(|frame| {
             let keyframe = Keyframe {
                 time: current_time,
+                // The Z coordinate is set to zero because it is unused in the game and usually
+                // contains unreasonable values.
                 translation: Vec3A::new(prev_root_trans.x + frame.plus_x, frame.pos_y, 0.),
                 transforms: frame.bones.iter().map(Mat4::from_cols_array_2d).collect(),
             };
