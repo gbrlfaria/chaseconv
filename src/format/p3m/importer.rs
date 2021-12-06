@@ -27,7 +27,7 @@ impl Importer for P3mImporter {
 }
 
 fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) -> Vec<Joint> {
-    let mut joints: Vec<_> = angle_bones.iter().map(|_| Joint::new()).collect();
+    let mut joints: Vec<_> = angle_bones.iter().map(|_| Joint::default()).collect();
 
     // Apply translation to the joints.
     for p_bone in position_bones {

@@ -59,12 +59,6 @@ pub struct Joint {
     pub children: Vec<usize>,
 }
 
-impl Joint {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
 /// Represents a keyframe animation sequence.
 #[derive(Debug, Clone)]
 pub struct Animation {

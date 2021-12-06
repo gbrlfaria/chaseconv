@@ -6,7 +6,7 @@ use crate::conversion::{Asset, Exporter, Scene};
 pub struct P3mExporter {}
 
 impl Exporter for P3mExporter {
-    fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
+    fn export(&self, _scene: &Scene) -> Result<Vec<Asset>> {
         todo!()
     }
 }
