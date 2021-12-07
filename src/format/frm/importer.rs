@@ -35,7 +35,6 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
         .iter()
         .map(|frame| {
             let keyframe = Keyframe {
-                time: current_time,
                 // The Z coordinate is set to zero because it is unused in the game and usually
                 // contains unreasonable values.
                 translation: Vec3A::new(prev_root_trans.x + frame.plus_x, frame.pos_y, 0.),
@@ -84,7 +83,6 @@ mod tests {
         let actual = convert_frames(&frm);
         let expected = vec![
             Keyframe {
-                time: 0.,
                 translation: Vec3A::new(1., 1., 0.),
                 transforms: vec![
                     Mat4::from_cols_array(&[1.; 16]),
@@ -92,7 +90,6 @@ mod tests {
                 ],
             },
             Keyframe {
-                time: 0.018181818,
                 translation: Vec3A::new(2., 1., 0.),
                 transforms: vec![
                     Mat4::from_cols_array(&[3.; 16]),

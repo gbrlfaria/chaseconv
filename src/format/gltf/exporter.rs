@@ -313,7 +313,7 @@ fn insert_animations(
         gltf_animation.samplers.push(json::animation::Sampler {
             input: json::Index::new(time_accessor as u32),
             output: json::Index::new(translations_accessor as u32),
-            // For the sake of simplicity, we use linear interpolation. In reality, 
+            // For the sake of simplicity, we use linear interpolation. In reality,
             // Grand Chase uses bezier curves with unknown in-tangent and out-tangent values.
             interpolation: Checked::Valid(gltf::animation::Interpolation::Linear),
             extensions: None,
@@ -713,6 +713,13 @@ fn insert_time_bytes(
     buffer: &mut Vec<u8>,
     animation: &Animation,
 ) -> Result<usize> {
+    let times: Vec<_> = animation
+        .frames
+        .iter()
+        .enumerate()
+        .map(|(i, _)| i as f32 * (1. / animation.sampling_rate() as f32))
+        .collect();
+
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -722,21 +729,19 @@ fn insert_time_bytes(
             json::accessor::ComponentType::F32,
         )),
         min: Some(
-            [animation
-                .frames
+            [times
                 .iter()
-                .map(|f| f.time)
                 .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .copied()
                 .unwrap_or_default()]
             .as_ref()
             .into(),
         ),
         max: Some(
-            [animation
-                .frames
+            [times
                 .iter()
-                .map(|f| f.time)
-                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .copied()
                 .unwrap_or_default()]
             .as_ref()
             .into(),
@@ -760,8 +765,8 @@ fn insert_time_bytes(
         extras: Default::default(),
     };
 
-    for frame in &animation.frames {
-        buffer.write_f32::<LE>(frame.time)?;
+    for &time in &times {
+        buffer.write_f32::<LE>(time)?;
     }
 
     root.accessors.push(accessor);

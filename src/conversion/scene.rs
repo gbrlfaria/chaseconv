@@ -59,7 +59,7 @@ pub struct Joint {
     pub children: Vec<usize>,
 }
 
-/// Represents a keyframe animation sequence.
+/// Represents a keyframe animation sequence. It should be sampled at 55 FPS.
 #[derive(Debug, Clone)]
 pub struct Animation {
     pub name: String,
@@ -78,6 +78,10 @@ impl Animation {
             }
         }
         result
+    }
+
+    pub fn sampling_rate(&self) -> i32 {
+        55
     }
 }
 
@@ -98,8 +102,6 @@ pub struct Vertex {
 /// Represents a single keyframe of a animation sequence.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Keyframe {
-    /// The time step, in seconds, of the frame.
-    pub time: f32,
     /// The translation of applied to the whole skeleton.
     pub translation: Vec3A,
     /// The list of matrices for each joint at the current frame.
