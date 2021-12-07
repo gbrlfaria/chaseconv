@@ -4,10 +4,10 @@ use anyhow::Result;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 
 pub const MAX_NUM_BONES: usize = 255;
+pub const INVALID_BONE_INDEX: u8 = 255;
 
 // The typo is intentional. The string below is the exact one used in the official assets.
 const VERSION_HEADER: &str = "Perfact 3D Model (Ver 0.5)\0";
-const INVALID_BONE_INDEX: u8 = 255;
 const TEXTURE_NAME_LEN: usize = 260;
 
 /// Represents a P3M file. The P3M format stores geometry data from GrandChase, including mesh,

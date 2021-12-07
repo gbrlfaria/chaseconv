@@ -3,7 +3,7 @@ use glam::Vec3A;
 
 use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
 
-use super::internal::{AngleBone, P3m, PositionBone, SkinVertex};
+use super::internal::{AngleBone, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX};
 
 #[derive(Default)]
 pub struct P3mImporter {}
@@ -86,7 +86,11 @@ fn convert_vertices(
                 position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
                 normal: Vec3A::from(vertex.normal),
                 uv: vertex.uv.into(),
-                joint: if joint != 0xff { Some(joint) } else { None },
+                joint: if joint != INVALID_BONE_INDEX as usize {
+                    Some(joint)
+                } else {
+                    None
+                },
             }
         })
         .collect()
