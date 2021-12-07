@@ -3,7 +3,9 @@ use std::io::{Cursor, Seek, SeekFrom};
 use anyhow::Result;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 
-// The typo is intentional and follows the string used in the official assets.
+pub const MAX_NUM_BONES: usize = 255;
+
+// The typo is intentional. The string below is the exact one used in the official assets.
 const VERSION_HEADER: &str = "Perfact 3D Model (Ver 0.5)\0";
 const INVALID_BONE_INDEX: u8 = 255;
 const TEXTURE_NAME_LEN: usize = 260;

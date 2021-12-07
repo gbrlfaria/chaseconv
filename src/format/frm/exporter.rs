@@ -29,7 +29,6 @@ impl Exporter for FrmExporter {
 
             result.push(asset);
         }
-
         Ok(result)
     }
 }
