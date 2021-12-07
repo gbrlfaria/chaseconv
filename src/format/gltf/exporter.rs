@@ -313,6 +313,8 @@ fn insert_animations(
         gltf_animation.samplers.push(json::animation::Sampler {
             input: json::Index::new(time_accessor as u32),
             output: json::Index::new(translations_accessor as u32),
+            // For the sake of simplicity, we use linear interpolation. In reality, 
+            // Grand Chase uses bezier curves with unknown in-tangent and out-tangent values.
             interpolation: Checked::Valid(gltf::animation::Interpolation::Linear),
             extensions: None,
             extras: Default::default(),
