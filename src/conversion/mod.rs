@@ -115,13 +115,19 @@ impl Converter {
                                     Ok(_) => {
                                         eprintln!(
                                             "Exported \"{}\" successfully!",
-                                            path.file_name().unwrap().to_str().unwrap(),
+                                            path.file_name()
+                                                .unwrap_or_default()
+                                                .to_str()
+                                                .unwrap_or("<INVALID NAME>"),
                                         );
                                     }
                                     Err(err) => {
                                         eprintln!(
                                             "Failed to export \"{}\": {}",
-                                            path.file_name().unwrap().to_str().unwrap(),
+                                            path.file_name()
+                                                .unwrap_or_default()
+                                                .to_str()
+                                                .unwrap_or("<INVALID NAME>"),
                                             err
                                         )
                                     }
