@@ -1,8 +1,11 @@
 use anyhow::Result;
+use glam::Vec3A;
 
 use crate::conversion::{Asset, Exporter, Joint, Mesh, Scene};
 
-use super::internal::{AngleBone, MeshVertex, P3m, PositionBone, SkinVertex, MAX_NUM_BONES};
+use super::internal::{
+    AngleBone, MeshVertex, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX, MAX_NUM_BONES,
+};
 
 #[derive(Default)]
 pub struct P3mExporter {}
@@ -12,7 +15,8 @@ impl Exporter for P3mExporter {
         let mut result = Vec::new();
         for mesh in &scene.meshes {
             let (position_bones, angle_bones) = convert_joints(&scene.skeleton);
-            let (skin_vertices, mesh_vertices) = convert_vertices(mesh);
+            let (skin_vertices, mesh_vertices) =
+                convert_vertices(mesh, position_bones.len(), scene);
             let faces = convert_faces(mesh);
 
             let p3m = P3m {
@@ -67,22 +71,37 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
     (position_bones, angle_bones)
 }
 
-fn convert_vertices(mesh: &Mesh) -> (Vec<SkinVertex>, Vec<MeshVertex>) {
+fn convert_vertices(
+    mesh: &Mesh,
+    num_position_bones: usize,
+    scene: &Scene,
+) -> (Vec<SkinVertex>, Vec<MeshVertex>) {
     let mut skin_vertices = Vec::new();
     let mut mesh_vertices = Vec::new();
 
-    // skin_vertices
-    // .iter()
-    // .map(|vertex| {
-    //     let joint = vertex.bone_index as usize - num_position_bones;
-    //     Vertex {
-    //         position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
-    //         normal: Vec3A::from(vertex.normal),
-    //         uv: vertex.uv.into(),
-    //         joint: if joint != 0xff { Some(joint) } else { None },
-    //     }
-    // })
-    // .collect()
+    for vertex in &mesh.vertices {
+        let joint_translation = match vertex.joint {
+            Some(index) => scene.joint_world_translation(index),
+            None => Vec3A::new(0., 0., 0.),
+        };
+
+        skin_vertices.push(SkinVertex {
+            position: (vertex.position - joint_translation).into(),
+            bone_index: match vertex.joint {
+                Some(index) => (index + num_position_bones) as u8,
+                None => INVALID_BONE_INDEX,
+            },
+            normal: vertex.normal.into(),
+            uv: vertex.uv.into(),
+            ..Default::default()
+        });
+
+        mesh_vertices.push(MeshVertex {
+            position: vertex.position.into(),
+            normal: vertex.normal.into(),
+            uv: vertex.uv.into(),
+        });
+    }
 
     (skin_vertices, mesh_vertices)
 }
