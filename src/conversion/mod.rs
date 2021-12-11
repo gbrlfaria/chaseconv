@@ -100,30 +100,30 @@ impl Converter {
                     match exporter.export(&scene) {
                         Ok(assets) => {
                             for asset in assets {
-                                let mut path = PathBuf::from(out_path).join(asset.path());
-                                if path.exists() {
+                                let path = PathBuf::from(out_path).join(asset.path());
+                                let path = if !path.exists() {
+                                    path
+                                } else {
                                     let uid = &uuid::Uuid::new_v4().to_simple().to_string();
-                                    path = PathBuf::from(out_path).join(format!(
+                                    PathBuf::from(out_path).join(format!(
                                         "{}_{}.{}",
                                         asset.name(),
                                         &uid[..uid.len() / 2],
                                         asset.extension()
-                                    ));
-                                }
+                                    ))
+                                };
 
                                 match fs::write(&path, &asset.bytes) {
                                     Ok(_) => {
                                         eprintln!(
-                                            "Exported \"{}.{}\" successfully!",
-                                            asset.name(),
-                                            asset.extension()
+                                            "Exported \"{}\" successfully!",
+                                            path.file_name().unwrap().to_str().unwrap(),
                                         );
                                     }
                                     Err(err) => {
                                         eprintln!(
-                                            "Failed to export the asset \"{}.{}\": {}",
-                                            asset.name(),
-                                            asset.extension(),
+                                            "Failed to export \"{}\": {}",
+                                            path.file_name().unwrap().to_str().unwrap(),
                                             err
                                         )
                                     }
