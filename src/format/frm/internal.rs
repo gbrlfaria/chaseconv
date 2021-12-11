@@ -109,8 +109,7 @@ pub struct Frame {
     /// the origin.
     pub pos_y: f32,
     /// The z-coordinate of the root position of the skeleton for the current frame, **relative to
-    /// the previous frame**. It's only present in FRM v1.1 and is zero otherwise.
-    /// **This field is unused**
+    /// the origin**. It's only present in FRM v1.1 and is zero otherwise.
     pub pos_z: f32,
     /// The bone matrices of all bones for the current frame. Originally, they only contain
     /// rotation.

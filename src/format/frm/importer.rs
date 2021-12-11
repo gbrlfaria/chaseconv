@@ -37,7 +37,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
             let keyframe = Keyframe {
                 // The Z coordinate is set to zero because it is unused in the game and usually
                 // contains unreasonable values.
-                translation: Vec3A::new(prev_root_trans.x + frame.plus_x, frame.pos_y, 0.),
+                translation: Vec3A::new(prev_root_trans.x + frame.plus_x, frame.pos_y, frame.pos_z),
                 transforms: frame.bones.iter().map(Mat4::from_cols_array_2d).collect(),
             };
 
