@@ -28,7 +28,13 @@ impl Exporter for GltfExporter {
         let skeleton_index = insert_scene(&mut root, &scene.skeleton, &scene.meshes);
         insert_meshes(&mut root, &mut buffer, &scene.meshes)?;
         insert_skins(&mut root, &mut buffer, &scene, skeleton_index)?;
-        insert_animations(&mut root, &mut buffer, &scene.animations, skeleton_index)?;
+        insert_animations(
+            &mut root,
+            &mut buffer,
+            &scene.animations,
+            scene.skeleton.len(),
+            skeleton_index,
+        )?;
         insert_buffers(&mut root, &buffer);
 
         root.asset = json::Asset {
@@ -296,6 +302,7 @@ fn insert_animations(
     root: &mut json::Root,
     buffer: &mut Vec<u8>,
     animations: &[Animation],
+    skeleton_len: usize,
     skeleton_index: usize,
 ) -> Result<()> {
     for animation in animations {
@@ -331,7 +338,7 @@ fn insert_animations(
             extras: Default::default(),
         });
 
-        for (index, transforms) in animation.joints().iter().enumerate() {
+        for (index, transforms) in animation.joints().iter().enumerate().take(skeleton_len) {
             let rotations_accessor = insert_rotations_bytes(root, buffer, transforms)?;
             gltf_animation.samplers.push(json::animation::Sampler {
                 input: json::Index::new(time_accessor as u32),

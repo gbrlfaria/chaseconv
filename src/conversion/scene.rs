@@ -26,11 +26,11 @@ impl Scene {
     }
 
     pub fn merge(mut self, mut other: Scene) -> Self {
-        self.meshes.append(&mut other.meshes);
-        self.animations.append(&mut other.animations);
         if self.skeleton.is_empty() {
             self.skeleton = other.skeleton;
         }
+        self.meshes.append(&mut other.meshes);
+        self.animations.append(&mut other.animations);
 
         self
     }
