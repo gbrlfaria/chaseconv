@@ -12,16 +12,6 @@ impl Importer for GltfImporter {
         let gltf = gltf::Gltf::from_slice(&asset.bytes)?;
         let buffers = load_buffers(&gltf, asset.path())?;
 
-        // let buffers = gltf.buffers().map(|buffer| match buffer.source() {
-        //     Source::Bin => blob
-        //         .take()
-        //         .expect("The GLB binary chunk was referenced more than once in the buffer list"),
-        //     Source::Uri(string) => {
-        //         vec![]
-        //     }
-        // });
-        // gltf.blob
-
         todo!()
     }
 
