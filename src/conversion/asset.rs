@@ -2,6 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::Result;
 
+#[derive(Debug)]
 pub struct Asset {
     pub bytes: Vec<u8>,
     path: PathBuf,
@@ -40,13 +41,5 @@ impl Asset {
             .to_ascii_lowercase()
             .to_string_lossy()
             .to_string()
-    }
-
-    pub fn parent_dir(&self) -> &str {
-        self.path
-            .parent()
-            .unwrap()
-            .to_str()
-            .expect("The path to directory of the asset is not a valid unicode string")
     }
 }
