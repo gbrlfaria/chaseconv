@@ -1,8 +1,9 @@
 use std::path::Path;
 
 use anyhow::Result;
+use glam::{Vec2, Vec3A};
 
-use crate::conversion::{Asset, Importer, Scene};
+use crate::conversion::{Asset, Importer, Mesh, Scene, Vertex};
 
 #[derive(Default)]
 pub struct GltfImporter {}
@@ -11,6 +12,73 @@ impl Importer for GltfImporter {
     fn import(&self, asset: &Asset, scene: &mut Scene) -> Result<()> {
         let gltf = gltf::Gltf::from_slice(&asset.bytes)?;
         let buffers = load_buffers(&gltf, asset.path())?;
+
+        let mut meshes = Vec::new();
+        for mesh in gltf.meshes() {
+            let name = mesh.name().unwrap_or_default();
+            for primitive in mesh.primitives() {
+                let mut mesh = Mesh {
+                    name: name.into(),
+                    ..Default::default()
+                };
+
+                let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+
+                let positions: Vec<Vec3A> = reader
+                    .read_positions()
+                    .map(|v| v.map(|x| x.into()).collect())
+                    .unwrap_or_default();
+                let normals: Vec<Vec3A> = reader
+                    .read_normals()
+                    .map(|v| v.map(|x| x.into()).collect())
+                    .unwrap_or_default();
+                let tex_coords: Vec<Vec2> = reader
+                    .read_tex_coords(0)
+                    .map(|v| v.into_f32().map(|x| x.into()).collect())
+                    .unwrap_or_default();
+                let joints: Vec<_> = reader
+                    .read_joints(0)
+                    .map(|v| v.into_u16().collect())
+                    .unwrap_or_default();
+                let weights: Vec<_> = reader
+                    .read_weights(0)
+                    .map(|v| v.into_f32().collect())
+                    .unwrap_or_default();
+
+                mesh.vertices = (0..positions.len())
+                    .map(|index| {
+                        let position = positions[index];
+                        let normal = normals.get(index).cloned().unwrap_or_default();
+                        let uv = tex_coords.get(index).cloned().unwrap_or_default();
+                        let joints = joints.get(index).cloned().unwrap_or_default();
+                        let weights = weights.get(index).cloned().unwrap_or_default();
+
+                        // Chooses the joint with maximum influence over the vertex.
+                        let (joint, weight) = joints
+                            .iter()
+                            .zip(weights)
+                            .max_by(|(_, w_a), (_, w_b)| {
+                                w_a.partial_cmp(w_b).unwrap_or(std::cmp::Ordering::Equal)
+                            })
+                            .unwrap();
+                        let joint = if weight > 0.0 {
+                            Some(*joint as usize)
+                        } else {
+                            None
+                        };
+
+                        Vertex {
+                            position,
+                            normal,
+                            uv,
+                            joint,
+                        }
+                    })
+                    .collect();
+
+                meshes.push(mesh);
+            }
+        }
 
         todo!()
     }
@@ -60,11 +128,6 @@ struct DataUri<'a> {
     data: &'a str,
 }
 
-fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
-    let mut iter = input.splitn(2, delimiter);
-    Some((iter.next()?, iter.next()?))
-}
-
 impl<'a> DataUri<'a> {
     fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
         let uri = uri.strip_prefix("data:").ok_or(())?;
@@ -89,4 +152,9 @@ impl<'a> DataUri<'a> {
             Ok(self.data.as_bytes().to_owned())
         }
     }
+}
+
+fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut iter = input.splitn(2, delimiter);
+    Some((iter.next()?, iter.next()?))
 }

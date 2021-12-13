@@ -37,7 +37,7 @@ impl Scene {
 }
 
 /// Represents the geometry of a mesh.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct Mesh {
     /// The name of the mesh.
     pub name: String,
