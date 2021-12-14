@@ -151,7 +151,7 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
         }
 
         nodes.push(json::Node {
-            name: Some(format!("joint_{}", index)),
+            name: Some(format!("bone_{}", index)),
             children: if !joint.children.is_empty() {
                 Some(
                     joint

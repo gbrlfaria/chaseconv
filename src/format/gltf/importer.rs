@@ -1,9 +1,9 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
 use glam::{Vec2, Vec3A};
 
-use crate::conversion::{Asset, Importer, Mesh, Scene, Vertex};
+use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
 
 #[derive(Default)]
 pub struct GltfImporter {}
@@ -13,72 +13,9 @@ impl Importer for GltfImporter {
         let gltf = gltf::Gltf::from_slice(&asset.bytes)?;
         let buffers = load_buffers(&gltf, asset.path())?;
 
-        let mut meshes = Vec::new();
-        for mesh in gltf.meshes() {
-            let name = mesh.name().unwrap_or_default();
-            for primitive in mesh.primitives() {
-                let mut mesh = Mesh {
-                    name: name.into(),
-                    ..Default::default()
-                };
-
-                let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
-
-                let positions: Vec<Vec3A> = reader
-                    .read_positions()
-                    .map(|v| v.map(|x| x.into()).collect())
-                    .unwrap_or_default();
-                let normals: Vec<Vec3A> = reader
-                    .read_normals()
-                    .map(|v| v.map(|x| x.into()).collect())
-                    .unwrap_or_default();
-                let tex_coords: Vec<Vec2> = reader
-                    .read_tex_coords(0)
-                    .map(|v| v.into_f32().map(|x| x.into()).collect())
-                    .unwrap_or_default();
-                let joints: Vec<_> = reader
-                    .read_joints(0)
-                    .map(|v| v.into_u16().collect())
-                    .unwrap_or_default();
-                let weights: Vec<_> = reader
-                    .read_weights(0)
-                    .map(|v| v.into_f32().collect())
-                    .unwrap_or_default();
-
-                mesh.vertices = (0..positions.len())
-                    .map(|index| {
-                        let position = positions[index];
-                        let normal = normals.get(index).cloned().unwrap_or_default();
-                        let uv = tex_coords.get(index).cloned().unwrap_or_default();
-                        let joints = joints.get(index).cloned().unwrap_or_default();
-                        let weights = weights.get(index).cloned().unwrap_or_default();
-
-                        // Chooses the joint with maximum influence over the vertex.
-                        let (joint, weight) = joints
-                            .iter()
-                            .zip(weights)
-                            .max_by(|(_, w_a), (_, w_b)| {
-                                w_a.partial_cmp(w_b).unwrap_or(std::cmp::Ordering::Equal)
-                            })
-                            .unwrap();
-                        let joint = if weight > 0.0 {
-                            Some(*joint as usize)
-                        } else {
-                            None
-                        };
-
-                        Vertex {
-                            position,
-                            normal,
-                            uv,
-                            joint,
-                        }
-                    })
-                    .collect();
-
-                meshes.push(mesh);
-            }
-        }
+        let (joints, map) = convert_joints(&gltf);
+        // todo fix bone indices
+        let meshes = convert_meshes(&gltf, &buffers);
 
         todo!()
     }
@@ -86,6 +23,82 @@ impl Importer for GltfImporter {
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
     }
+}
+
+fn convert_joints(gltf: &gltf::Gltf) -> (Vec<Joint>, HashMap<u16, usize>) {
+    // "bone"
+    // skeleton = root skeleton, will receive the animation global translation.
+    todo!()
+}
+
+fn convert_meshes(gltf: &gltf::Gltf, buffers: &[Vec<u8>]) -> Vec<Mesh> {
+    let mut meshes = Vec::new();
+    for mesh in gltf.meshes() {
+        let name = mesh.name().unwrap_or_default();
+        for primitive in mesh.primitives() {
+            let mut mesh = Mesh {
+                name: name.into(),
+                ..Default::default()
+            };
+
+            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+
+            let positions: Vec<Vec3A> = reader
+                .read_positions()
+                .map(|v| v.map(|x| x.into()).collect())
+                .unwrap_or_default();
+            let normals: Vec<Vec3A> = reader
+                .read_normals()
+                .map(|v| v.map(|x| x.into()).collect())
+                .unwrap_or_default();
+            let tex_coords: Vec<Vec2> = reader
+                .read_tex_coords(0)
+                .map(|v| v.into_f32().map(|x| x.into()).collect())
+                .unwrap_or_default();
+            let joints: Vec<_> = reader
+                .read_joints(0)
+                .map(|v| v.into_u16().collect())
+                .unwrap_or_default();
+            let weights: Vec<_> = reader
+                .read_weights(0)
+                .map(|v| v.into_f32().collect())
+                .unwrap_or_default();
+
+            mesh.vertices = (0..positions.len())
+                .map(|index| {
+                    let position = positions[index];
+                    let normal = normals.get(index).cloned().unwrap_or_default();
+                    let uv = tex_coords.get(index).cloned().unwrap_or_default();
+                    let joints = joints.get(index).cloned().unwrap_or_default();
+                    let weights = weights.get(index).cloned().unwrap_or_default();
+
+                    // Chooses the joint with maximum influence over the vertex.
+                    let (joint, weight) = joints
+                        .iter()
+                        .zip(weights)
+                        .max_by(|(_, w_a), (_, w_b)| {
+                            w_a.partial_cmp(w_b).unwrap_or(std::cmp::Ordering::Equal)
+                        })
+                        .unwrap();
+                    let joint = if weight > 0.0 {
+                        Some(*joint as usize)
+                    } else {
+                        None
+                    };
+
+                    Vertex {
+                        position,
+                        normal,
+                        uv,
+                        joint,
+                    }
+                })
+                .collect();
+
+            meshes.push(mesh);
+        }
+    }
+    meshes
 }
 
 // Adapted from https://github.com/bevyengine/bevy/blob/c6fec1f0c256597af9746050dd1a4dcd3b80fe24/crates/bevy_gltf/src/loader.rs#L643
