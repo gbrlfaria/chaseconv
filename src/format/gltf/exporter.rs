@@ -177,7 +177,7 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
     }
 
     nodes.push(json::Node {
-        name: Some(String::from("skeleton")),
+        name: Some(String::from("root")),
         children: Some(roots.iter().map(|&root| json::Index::new(root)).collect()),
         translation: None,
         camera: None,
