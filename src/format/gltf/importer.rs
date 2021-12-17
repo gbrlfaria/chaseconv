@@ -13,11 +13,13 @@ impl Importer for GltfImporter {
         let gltf = gltf::Gltf::from_slice(&asset.bytes)?;
         let buffers = load_buffers(&gltf, asset.path())?;
 
-        let (joints, map) = convert_joints(&gltf);
-        // todo fix bone indices
-        let meshes = convert_meshes(&gltf, &buffers);
+        let (joints, joint_map) = convert_joints(&gltf);
+        let mut meshes = convert_meshes(&gltf, &buffers, &joint_map);
 
-        todo!()
+        scene.skeleton = joints;
+        scene.meshes.append(&mut meshes);
+
+        Ok(())
     }
 
     fn extensions(&self) -> &[&str] {
@@ -25,13 +27,52 @@ impl Importer for GltfImporter {
     }
 }
 
-fn convert_joints(gltf: &gltf::Gltf) -> (Vec<Joint>, HashMap<u16, usize>) {
+/// Converts GLTF nodes whose name contains "bone" to joints.
+fn convert_joints(gltf: &gltf::Gltf) -> (Vec<Joint>, HashMap<usize, usize>) {
+    let mut joint_map = HashMap::new();
+    let mut parents = HashMap::new();
+    for node in gltf.nodes() {
+        if node.name().unwrap_or_default().contains("bone") {
+            joint_map.insert(node.index(), joint_map.len());
+            for child in node.children() {
+                parents.insert(child.index(), node.index());
+            }
+        }
+    }
+
+    let joints = gltf
+        .nodes()
+        .filter_map(|node| {
+            if joint_map.contains_key(&node.index()) {
+                let (t, _, _) = node.transform().decomposed();
+                Some(Joint {
+                    translation: t.into(),
+                    parent: parents
+                        .get(&node.index())
+                        .and_then(|index| joint_map.get(index))
+                        .copied(),
+                    children: node
+                        .children()
+                        .filter_map(|child| joint_map.get(&child.index()).copied())
+                        .collect(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
     // "bone"
     // skeleton = root skeleton, will receive the animation global translation.
-    todo!()
+
+    (joints, joint_map)
 }
 
-fn convert_meshes(gltf: &gltf::Gltf, buffers: &[Vec<u8>]) -> Vec<Mesh> {
+fn convert_meshes(
+    gltf: &gltf::Gltf,
+    buffers: &[Vec<u8>],
+    joint_map: &HashMap<usize, usize>,
+) -> Vec<Mesh> {
     let mut meshes = Vec::new();
     for mesh in gltf.meshes() {
         let name = mesh.name().unwrap_or_default();
@@ -81,7 +122,7 @@ fn convert_meshes(gltf: &gltf::Gltf, buffers: &[Vec<u8>]) -> Vec<Mesh> {
                         })
                         .unwrap();
                     let joint = if weight > 0.0 {
-                        Some(*joint as usize)
+                        joint_map.get(&(*joint as usize)).copied()
                     } else {
                         None
                     };

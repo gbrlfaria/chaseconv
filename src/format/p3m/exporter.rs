@@ -41,7 +41,11 @@ impl Exporter for P3mExporter {
     }
 }
 
-// TODO: check character biped hierarchy to make it compatible...
+// The conversion is slightly different from the official one. Here, each angle
+// bone corresponds to exactly one position bone, whereas official character models
+// usually have one position bone for the two 'root' angle bones. Nonetheless,
+// the number and the indexes of angle bones stay the same, so it should work fine
+// as they are the ones actually used in the game.
 fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
     let mut position_bones = Vec::new();
     let mut angle_bones = Vec::new();
