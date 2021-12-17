@@ -350,9 +350,8 @@ fn insert_animations(
             gltf_animation.channels.push(json::animation::Channel {
                 sampler: json::Index::new(gltf_animation.channels.len() as u32),
                 target: json::animation::Target {
-                    // The index of the iteration corresponds to the index of the node hierarchy
-                    // because joints are the first things to be inserted, and they are insserted
-                    // in order.
+                    // The index of the loop corresponds to the index of the joint node
+                    // because joints are the first things to be inserted into the scene hierarchy.
                     node: json::Index::new(index as u32),
                     path: Checked::Valid(gltf::animation::Property::Rotation),
                     extensions: None,

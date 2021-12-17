@@ -2,6 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
 use glam::{Vec2, Vec3A};
+use gltf::animation::Property;
 
 use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
 
@@ -14,7 +15,10 @@ impl Importer for GltfImporter {
         let buffers = load_buffers(&gltf, asset.path())?;
 
         let (joints, joint_map) = convert_joints(&gltf);
+        let skeleton_index = get_skeleton_index(&gltf);
+
         let mut meshes = convert_meshes(&gltf, &buffers, &joint_map);
+        let mut animations = convert_animations(&gltf, &buffers, &joint_map, skeleton_index);
 
         scene.skeleton = joints;
         scene.meshes.append(&mut meshes);
@@ -32,7 +36,8 @@ fn convert_joints(gltf: &gltf::Gltf) -> (Vec<Joint>, HashMap<usize, usize>) {
     let mut joint_map = HashMap::new();
     let mut parents = HashMap::new();
     for node in gltf.nodes() {
-        if node.name().unwrap_or_default().contains("bone") {
+        let node_name = node.name().unwrap_or_default();
+        if node_name.contains("bone") {
             joint_map.insert(node.index(), joint_map.len());
             for child in node.children() {
                 parents.insert(child.index(), node.index());
@@ -62,10 +67,41 @@ fn convert_joints(gltf: &gltf::Gltf) -> (Vec<Joint>, HashMap<usize, usize>) {
         })
         .collect();
 
-    // "bone"
-    // skeleton = root skeleton, will receive the animation global translation.
-
     (joints, joint_map)
+}
+
+/// Returns the index of the skeleton root node. The skeleton of the root
+/// node is the first node that contains "root" in its name.
+fn get_skeleton_index(gltf: &gltf::Gltf) -> Option<usize> {
+    gltf.nodes().find_map(|node| {
+        if node.name().unwrap_or_default().contains("root") {
+            Some(node.index())
+        } else {
+            None
+        }
+    })
+}
+
+fn convert_animations(
+    gltf: &gltf::Gltf,
+    buffers: &[Vec<u8>],
+    joint_map: &HashMap<usize, usize>,
+    skeleton_index: Option<usize>,
+) -> () {
+    for animation in gltf.animations() {
+        for channel in animation.channels() {
+            if let Some(index) = skeleton_index {
+                if channel.target().node().index() == index
+                    && channel.target().property() == Property::Translation
+                {
+                    let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
+                    // reader.read_inputs()
+                    // reader.read_outputs()
+                    // root translations
+                }
+            }
+        }
+    }
 }
 
 fn convert_meshes(
