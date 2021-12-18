@@ -49,8 +49,8 @@ fn convert_joints(gltf: &gltf::Gltf, joint_map: &mut HashMap<usize, usize>) -> V
         if true {
             // If the name of the node has the format "bone_X", set the index of the joint to X.
             // This is done to maintain the compatibility with the bones of the original format.
-            if node_name.starts_with(PREFIX) {
-                if let Some(joint_index) = node_name[PREFIX.len()..].parse().ok() {
+            if let Some(stripped) = node_name.strip_prefix(PREFIX) {
+                if let Ok(joint_index) = stripped.parse() {
                     joint_map.insert(node.index(), joint_index);
                 }
             }
