@@ -14,7 +14,13 @@ impl Importer for GltfImporter {
         let gltf = gltf::Gltf::from_slice(&asset.bytes)?;
         let buffers = load_buffers(&gltf, asset.path())?;
 
-        let (joints, joint_map) = convert_joints(&gltf);
+        let mut joint_map = HashMap::new();
+        if let Some(skin) = gltf.skins().next() {
+            for node in skin.joints() {
+                joint_map.insert(node.index(), joint_map.len());
+            }
+        }
+        let joints = convert_joints(&gltf, &mut joint_map);
         let skeleton_index = get_skeleton_index(&gltf);
 
         let mut meshes = convert_meshes(&gltf, &buffers, &joint_map);
@@ -34,50 +40,54 @@ impl Importer for GltfImporter {
     }
 }
 
-/// Converts GLTF nodes whose name contains "bone" to joints.
-fn convert_joints(gltf: &gltf::Gltf) -> (Vec<Joint>, HashMap<usize, usize>) {
-    let mut joint_map = HashMap::new();
+fn convert_joints(gltf: &gltf::Gltf, joint_map: &mut HashMap<usize, usize>) -> Vec<Joint> {
+    const PREFIX: &str = "bone_";
+
     let mut parents = HashMap::new();
     for node in gltf.nodes() {
         let node_name = node.name().unwrap_or_default();
-        if node_name.contains("bone") {
-            joint_map.insert(node.index(), joint_map.len());
+        if true {
+            // If the name of the node has the format "bone_X", set the index of the joint to X.
+            // This is done to maintain the compatibility with the bones of the original format.
+            if node_name.starts_with(PREFIX) {
+                if let Some(joint_index) = node_name[PREFIX.len()..].parse().ok() {
+                    joint_map.insert(node.index(), joint_index);
+                }
+            }
             for child in node.children() {
                 parents.insert(child.index(), node.index());
             }
         }
     }
 
-    let joints = gltf
-        .nodes()
-        .filter_map(|node| {
-            if joint_map.contains_key(&node.index()) {
-                let (t, _, _) = node.transform().decomposed();
-                Some(Joint {
-                    translation: t.into(),
-                    parent: parents
-                        .get(&node.index())
-                        .and_then(|index| joint_map.get(index))
-                        .copied(),
-                    children: node
-                        .children()
-                        .filter_map(|child| joint_map.get(&child.index()).copied())
-                        .collect(),
-                })
-            } else {
-                None
-            }
-        })
-        .collect();
+    let max_index = joint_map.values().max().copied().unwrap_or_default();
+    let mut joints = vec![Joint::default(); max_index + 1];
+    for node in gltf.nodes() {
+        if let Some(&joint_index) = joint_map.get(&node.index()) {
+            let (t, _, _) = node.transform().decomposed();
+            *joints.get_mut(joint_index).unwrap() = Joint {
+                translation: t.into(),
+                parent: parents
+                    .get(&node.index())
+                    .and_then(|index| joint_map.get(index))
+                    .copied(),
+                children: node
+                    .children()
+                    .filter_map(|child| joint_map.get(&child.index()).copied())
+                    .collect(),
+            };
+        }
+    }
 
-    (joints, joint_map)
+    joints
 }
 
 /// Returns the index of the skeleton root node. The skeleton of the root
-/// node is the first node that contains "root" in its name.
+/// node is the first node whose name starts with "root". This node is used to
+/// apply translations to the whole skeleton in animations.
 fn get_skeleton_index(gltf: &gltf::Gltf) -> Option<usize> {
     gltf.nodes().find_map(|node| {
-        if node.name().unwrap_or_default().contains("root") {
+        if node.name().unwrap_or_default().starts_with("root") {
             Some(node.index())
         } else {
             None
@@ -163,7 +173,7 @@ fn convert_animations(
             .map(|i| {
                 let root_translation = root_translations.get(i).copied().unwrap_or_default();
                 let num_transforms = joint_map.len();
-                let transforms = (0..num_transforms)
+                let transforms: Vec<Mat4> = (0..num_transforms)
                     .map(|j| {
                         let translation = translations
                             .get(j)
