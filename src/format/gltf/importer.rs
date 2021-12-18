@@ -104,19 +104,18 @@ fn convert_animations(
         let mut num_frames = 0;
         for channel in animation.channels() {
             let index = channel.target().node().index();
-            if let Some(skeleton_index) = skeleton_index {
+            if Some(index) == skeleton_index && channel.target().property() == Property::Translation
+            {
                 // ROOT TRANSLATIONS
-                if index == skeleton_index && channel.target().property() == Property::Translation {
-                    let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
-                    root_translations = reader
-                        .read_outputs()
-                        .map(|v| match v {
-                            ReadOutputs::Translations(v) => v.map(|x| x.into()).collect(),
-                            _ => Vec::new(),
-                        })
-                        .unwrap_or_default();
-                    num_frames = num_frames.max(root_translations.len());
-                }
+                let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
+                root_translations = reader
+                    .read_outputs()
+                    .map(|v| match v {
+                        ReadOutputs::Translations(v) => v.map(|x| x.into()).collect(),
+                        _ => Vec::new(),
+                    })
+                    .unwrap_or_default();
+                num_frames = num_frames.max(root_translations.len());
             } else if joint_map.contains_key(&index) {
                 // BONE TRANSFORMS
                 let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
@@ -175,12 +174,12 @@ fn convert_animations(
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()
-                            .unwrap_or_default();
+                            .unwrap_or(Quat::IDENTITY);
                         let scale = scales
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()
-                            .unwrap_or_default();
+                            .unwrap_or_else(|| Vec3::new(1., 1., 1.));
                         Mat4::from_scale_rotation_translation(scale, rotation, translation)
                     })
                     .collect();

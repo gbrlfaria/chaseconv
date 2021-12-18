@@ -83,14 +83,14 @@ mod tests {
         let actual = convert_frames(&frm);
         let expected = vec![
             Keyframe {
-                translation: Vec3A::new(1., 1., 0.),
+                translation: Vec3A::new(1., 1., 1.),
                 transforms: vec![
                     Mat4::from_cols_array(&[1.; 16]),
                     Mat4::from_cols_array(&[2.; 16]),
                 ],
             },
             Keyframe {
-                translation: Vec3A::new(2., 1., 0.),
+                translation: Vec3A::new(2., 1., 1.),
                 transforms: vec![
                     Mat4::from_cols_array(&[3.; 16]),
                     Mat4::from_cols_array(&[4.; 16]),
