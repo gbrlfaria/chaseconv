@@ -1,3 +1,5 @@
+// WARNING: GLTF importing does not work properly yet.
+
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
