@@ -1,10 +1,10 @@
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
-use glam::{Quat, Vec2, Vec3, Vec3A};
+use glam::{Mat4, Quat, Vec2, Vec3, Vec3A};
 use gltf::animation::{util::ReadOutputs, Property};
 
-use crate::conversion::{Asset, Importer, Joint, Scene, Vertex, Mesh};
+use crate::conversion::{Animation, Asset, Importer, Joint, Keyframe, Mesh, Scene, Vertex};
 
 #[derive(Default)]
 pub struct GltfImporter {}
@@ -22,6 +22,7 @@ impl Importer for GltfImporter {
 
         scene.skeleton = joints;
         scene.meshes.append(&mut meshes);
+        scene.animations.append(&mut animations);
 
         Ok(())
     }
@@ -82,13 +83,15 @@ fn get_skeleton_index(gltf: &gltf::Gltf) -> Option<usize> {
     })
 }
 
-/// The animation input time should already be sampled at 55FPS.
+/// The animation input time should already be sampled at 55 FPS. All channels should be
+/// the same length.
 fn convert_animations(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
     joint_map: &HashMap<usize, usize>,
     skeleton_index: Option<usize>,
-) -> () {
+) -> Vec<Animation> {
+    let mut result = Vec::new();
     for animation in gltf.animations() {
         let mut root_translations: Vec<Vec3> = Vec::new();
         // Dimensions: [joint, frame, value]
@@ -96,12 +99,12 @@ fn convert_animations(
         let mut rotations: Vec<Vec<Quat>> = vec![Vec::new(); joint_map.len()];
         let mut scales: Vec<Vec<Vec3>> = vec![Vec::new(); joint_map.len()];
 
+        let mut num_frames = 0;
         for channel in animation.channels() {
-            if let Some(index) = skeleton_index {
-                if channel.target().node().index() == index
-                    && channel.target().property() == Property::Translation
-                {
-                    // Root translation
+            let index = channel.target().node().index();
+            if let Some(skeleton_index) = skeleton_index {
+                // ROOT TRANSLATIONS
+                if index == skeleton_index && channel.target().property() == Property::Translation {
                     let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
                     root_translations = reader
                         .read_outputs()
@@ -110,49 +113,88 @@ fn convert_animations(
                             _ => Vec::new(),
                         })
                         .unwrap_or_default();
-
-                    continue;
+                    num_frames = num_frames.max(root_translations.len());
                 }
-            } else {
-                let index = channel.target().node().index();
-                if joint_map.contains_key(&index) {
-                    let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
-                    match channel.target().property() {
-                        Property::Translation => {
-                            translations[*joint_map.get(&index).unwrap()] = reader
-                                .read_outputs()
-                                .map(|v| match v {
-                                    ReadOutputs::Translations(v) => v.map(|x| x.into()).collect(),
-                                    _ => Vec::new(),
-                                })
-                                .unwrap_or_default();
-                        }
-                        Property::Rotation => {
-                            rotations[*joint_map.get(&index).unwrap()] = reader
-                                .read_outputs()
-                                .map(|v| match v {
-                                    ReadOutputs::Rotations(v) => {
-                                        v.into_f32().map(|x| Quat::from_array(x)).collect()
-                                    }
-                                    _ => Vec::new(),
-                                })
-                                .unwrap_or_default();
-                        }
-                        Property::Scale => {
-                            scales[*joint_map.get(&index).unwrap()] = reader
-                                .read_outputs()
-                                .map(|v| match v {
-                                    ReadOutputs::Scales(v) => v.map(|x| x.into()).collect(),
-                                    _ => Vec::new(),
-                                })
-                                .unwrap_or_default();
-                        }
-                        _ => {}
+            } else if joint_map.contains_key(&index) {
+                // BONE TRANSFORMS
+                let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
+                match channel.target().property() {
+                    Property::Translation => {
+                        translations[*joint_map.get(&index).unwrap()] = reader
+                            .read_outputs()
+                            .map(|v| match v {
+                                ReadOutputs::Translations(v) => v.map(|x| x.into()).collect(),
+                                _ => Vec::new(),
+                            })
+                            .unwrap_or_default();
+                        num_frames =
+                            num_frames.max(translations[*joint_map.get(&index).unwrap()].len());
                     }
+                    Property::Rotation => {
+                        rotations[*joint_map.get(&index).unwrap()] = reader
+                            .read_outputs()
+                            .map(|v| match v {
+                                ReadOutputs::Rotations(v) => {
+                                    v.into_f32().map(|x| Quat::from_array(x)).collect()
+                                }
+                                _ => Vec::new(),
+                            })
+                            .unwrap_or_default();
+                        num_frames =
+                            num_frames.max(rotations[*joint_map.get(&index).unwrap()].len());
+                    }
+                    Property::Scale => {
+                        scales[*joint_map.get(&index).unwrap()] = reader
+                            .read_outputs()
+                            .map(|v| match v {
+                                ReadOutputs::Scales(v) => v.map(|x| x.into()).collect(),
+                                _ => Vec::new(),
+                            })
+                            .unwrap_or_default();
+                        num_frames = num_frames.max(scales[*joint_map.get(&index).unwrap()].len());
+                    }
+                    _ => {}
                 }
             }
         }
+
+        let frames = (0..num_frames)
+            .map(|i| {
+                let root_translation = root_translations.get(i).copied().unwrap_or_default();
+                let num_transforms = joint_map.len();
+                let transforms = (0..num_transforms)
+                    .map(|j| {
+                        let translation = translations
+                            .get(j)
+                            .and_then(|v| v.get(i))
+                            .copied()
+                            .unwrap_or_default();
+                        let rotation = rotations
+                            .get(j)
+                            .and_then(|v| v.get(i))
+                            .copied()
+                            .unwrap_or_default();
+                        let scale = scales
+                            .get(j)
+                            .and_then(|v| v.get(i))
+                            .copied()
+                            .unwrap_or_default();
+                        Mat4::from_scale_rotation_translation(scale, rotation, translation)
+                    })
+                    .collect();
+                Keyframe {
+                    translation: root_translation.into(),
+                    transforms,
+                }
+            })
+            .collect();
+
+        result.push(Animation {
+            name: animation.name().unwrap_or_default().to_string(),
+            frames,
+        })
     }
+    result
 }
 
 fn convert_meshes(

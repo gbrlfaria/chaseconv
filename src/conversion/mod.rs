@@ -2,7 +2,9 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::Result;
 
-use crate::format::{frm::FrmExporter, p3m::P3mExporter, FrmImporter, GltfExporter, P3mImporter};
+use crate::format::{
+    FrmExporter, FrmImporter, GltfExporter, GltfImporter, P3mExporter, P3mImporter,
+};
 
 pub use self::{
     asset::Asset,
@@ -152,6 +154,7 @@ fn importers() -> Vec<Box<dyn Importer>> {
     vec![
         Box::new(FrmImporter::default()),
         Box::new(P3mImporter::default()),
+        Box::new(GltfImporter::default()),
     ]
 }
 

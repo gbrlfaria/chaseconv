@@ -1,4 +1,4 @@
-pub use exporter::GltfExporter;
+pub use {exporter::GltfExporter, importer::GltfImporter};
 
 mod exporter;
 mod importer;
