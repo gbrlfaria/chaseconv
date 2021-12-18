@@ -100,7 +100,7 @@ pub struct Vertex {
 }
 
 /// Represents a single keyframe of a animation sequence.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct Keyframe {
     /// The translation of applied to the whole skeleton.
     pub translation: Vec3A,

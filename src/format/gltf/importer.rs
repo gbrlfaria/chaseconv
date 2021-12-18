@@ -1,10 +1,10 @@
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
-use glam::{Vec2, Vec3A};
-use gltf::animation::Property;
+use glam::{Quat, Vec2, Vec3, Vec3A};
+use gltf::animation::{util::ReadOutputs, Property};
 
-use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
+use crate::conversion::{Asset, Importer, Joint, Scene, Vertex, Mesh};
 
 #[derive(Default)]
 pub struct GltfImporter {}
@@ -82,6 +82,7 @@ fn get_skeleton_index(gltf: &gltf::Gltf) -> Option<usize> {
     })
 }
 
+/// The animation input time should already be sampled at 55FPS.
 fn convert_animations(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
@@ -89,15 +90,65 @@ fn convert_animations(
     skeleton_index: Option<usize>,
 ) -> () {
     for animation in gltf.animations() {
+        let mut root_translations: Vec<Vec3> = Vec::new();
+        // Dimensions: [joint, frame, value]
+        let mut translations: Vec<Vec<Vec3>> = vec![Vec::new(); joint_map.len()];
+        let mut rotations: Vec<Vec<Quat>> = vec![Vec::new(); joint_map.len()];
+        let mut scales: Vec<Vec<Vec3>> = vec![Vec::new(); joint_map.len()];
+
         for channel in animation.channels() {
             if let Some(index) = skeleton_index {
                 if channel.target().node().index() == index
                     && channel.target().property() == Property::Translation
                 {
+                    // Root translation
                     let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
-                    // reader.read_inputs()
-                    // reader.read_outputs()
-                    // root translations
+                    root_translations = reader
+                        .read_outputs()
+                        .map(|v| match v {
+                            ReadOutputs::Translations(v) => v.map(|x| x.into()).collect(),
+                            _ => Vec::new(),
+                        })
+                        .unwrap_or_default();
+
+                    continue;
+                }
+            } else {
+                let index = channel.target().node().index();
+                if joint_map.contains_key(&index) {
+                    let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
+                    match channel.target().property() {
+                        Property::Translation => {
+                            translations[*joint_map.get(&index).unwrap()] = reader
+                                .read_outputs()
+                                .map(|v| match v {
+                                    ReadOutputs::Translations(v) => v.map(|x| x.into()).collect(),
+                                    _ => Vec::new(),
+                                })
+                                .unwrap_or_default();
+                        }
+                        Property::Rotation => {
+                            rotations[*joint_map.get(&index).unwrap()] = reader
+                                .read_outputs()
+                                .map(|v| match v {
+                                    ReadOutputs::Rotations(v) => {
+                                        v.into_f32().map(|x| Quat::from_array(x)).collect()
+                                    }
+                                    _ => Vec::new(),
+                                })
+                                .unwrap_or_default();
+                        }
+                        Property::Scale => {
+                            scales[*joint_map.get(&index).unwrap()] = reader
+                                .read_outputs()
+                                .map(|v| match v {
+                                    ReadOutputs::Scales(v) => v.map(|x| x.into()).collect(),
+                                    _ => Vec::new(),
+                                })
+                                .unwrap_or_default();
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
