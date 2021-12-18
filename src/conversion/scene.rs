@@ -4,7 +4,7 @@ use glam::{Mat4, Vec2, Vec3A};
 /// It's the intermediary format between conversions and provides some operations.
 ///
 /// It should use the left-handed Y-up coordinate system.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct Scene {
     pub meshes: Vec<Mesh>,
     pub skeleton: Vec<Joint>,
@@ -60,7 +60,7 @@ pub struct Joint {
 }
 
 /// Represents a keyframe animation sequence. It should be sampled at 55 FPS.
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Animation {
     pub name: String,
     pub frames: Vec<Keyframe>,

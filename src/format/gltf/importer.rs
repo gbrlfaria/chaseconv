@@ -24,6 +24,8 @@ impl Importer for GltfImporter {
         scene.meshes.append(&mut meshes);
         scene.animations.append(&mut animations);
 
+        *scene = super::transform(scene);
+
         Ok(())
     }
 
@@ -135,7 +137,7 @@ fn convert_animations(
                             .read_outputs()
                             .map(|v| match v {
                                 ReadOutputs::Rotations(v) => {
-                                    v.into_f32().map(|x| Quat::from_array(x)).collect()
+                                    v.into_f32().map(Quat::from_array).collect()
                                 }
                                 _ => Vec::new(),
                             })
@@ -233,6 +235,10 @@ fn convert_meshes(
                 .read_weights(0)
                 .map(|v| v.into_f32().collect())
                 .unwrap_or_default();
+            let indices: Vec<_> = reader
+                .read_indices()
+                .map(|v| v.into_u32().map(|x| x as usize).collect())
+                .unwrap_or_default();
 
             mesh.vertices = (0..positions.len())
                 .map(|index| {
@@ -264,6 +270,7 @@ fn convert_meshes(
                     }
                 })
                 .collect();
+            mesh.indices = indices;
 
             meshes.push(mesh);
         }
