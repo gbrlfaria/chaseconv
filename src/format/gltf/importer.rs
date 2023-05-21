@@ -34,6 +34,12 @@ impl Importer for GltfImporter {
 
         *scene = super::transform(scene);
 
+        // println!("");
+        // for (i, j) in scene.skeleton.iter().enumerate() {
+        //     let global_translation = scene.joint_world_translation(i);
+        //     println!("{}\t{:?}\t{:?}", i, j.translation, global_translation);
+        // }
+
         Ok(())
     }
 
@@ -45,31 +51,63 @@ impl Importer for GltfImporter {
 fn convert_joints(gltf: &gltf::Gltf, joint_map: &mut HashMap<usize, usize>) -> Vec<Joint> {
     const PREFIX: &str = "bone_";
 
-    let mut parents = HashMap::new();
+    let nodes = gltf
+        .nodes()
+        .map(|x| (x.index(), x))
+        .collect::<HashMap<_, _>>();
+
+    let mut child_parent_map = HashMap::new();
     for node in gltf.nodes() {
         let node_name = node.name().unwrap_or_default();
         if true {
             // If the name of the node has the format "bone_X", set the index of the joint to X.
             // This is done to maintain the compatibility with the bones of the original format.
+            // TODO: move this code away
             if let Some(stripped) = node_name.strip_prefix(PREFIX) {
                 if let Ok(joint_index) = stripped.parse() {
                     joint_map.insert(node.index(), joint_index);
                 }
             }
             for child in node.children() {
-                parents.insert(child.index(), node.index());
+                child_parent_map.insert(child.index(), node.index());
             }
         }
+    }
+
+    // Compute absolute and relative positions. This is necessary because the intermediary joint
+    // representation only supports translations as joint transoforms.
+    let mut absolute_positions = HashMap::new();
+    for node in gltf.nodes() {
+        let mut transform = Mat4::from_cols_array_2d(&node.transform().matrix());
+
+        let mut current_node = &node;
+        while let Some(parent) = child_parent_map
+            .get(&current_node.index())
+            .and_then(|index| nodes.get(index))
+        {
+            let parent_transform = Mat4::from_cols_array_2d(&parent.transform().matrix());
+            transform = parent_transform.mul_mat4(&transform);
+            current_node = parent;
+        }
+
+        let position = transform.transform_point3a(Vec3A::ZERO);
+        absolute_positions.insert(node.index(), position);
     }
 
     let max_index = joint_map.values().max().copied().unwrap_or_default();
     let mut joints = vec![Joint::default(); max_index + 1];
     for node in gltf.nodes() {
         if let Some(&joint_index) = joint_map.get(&node.index()) {
-            let (t, _, _) = node.transform().decomposed();
+            let translation = absolute_positions.get(&node.index()).unwrap();
+            let parent_translation = child_parent_map
+                .get(&node.index())
+                .and_then(|index| absolute_positions.get(index))
+                .copied()
+                .unwrap_or(Vec3A::ZERO);
+
             *joints.get_mut(joint_index).unwrap() = Joint {
-                translation: t.into(),
-                parent: parents
+                translation: *translation - parent_translation,
+                parent: child_parent_map
                     .get(&node.index())
                     .and_then(|index| joint_map.get(index))
                     .copied(),
