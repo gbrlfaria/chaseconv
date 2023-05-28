@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
 use glam::Vec3A;
 
-use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
+use crate::{
+    asset::Asset,
+    conversion::Importer,
+    scene::{Joint, Mesh, Scene, Vertex},
+};
 
 use super::internal::{AngleBone, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX};
 

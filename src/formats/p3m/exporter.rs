@@ -1,7 +1,11 @@
 use anyhow::Result;
 use glam::Vec3A;
 
-use crate::conversion::{Asset, Exporter, Joint, Mesh, Scene};
+use crate::{
+    asset::Asset,
+    conversion::Exporter,
+    scene::{Joint, Mesh, Scene},
+};
 
 use super::internal::{
     AngleBone, MeshVertex, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX, MAX_NUM_BONES,
@@ -74,12 +78,14 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
             if count > 0 {
                 position_bones
                     .get_mut(0)
-                    .map(|pos_bone| pos_bone.children.push(index as u8));
+                    .unwrap()
+                    .children
+                    .push(index as u8);
                 position_bones.remove(index);
                 for ang_bone in &mut angle_bones {
                     for child in &mut ang_bone.children {
                         if *child > index as u8 {
-                            *child = *child - 1;
+                            *child -= 1;
                         }
                     }
                 }

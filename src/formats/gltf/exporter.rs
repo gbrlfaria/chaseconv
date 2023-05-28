@@ -12,7 +12,11 @@ use gltf::{
     Glb,
 };
 
-use crate::conversion::{Animation, Asset, Exporter, Joint, Mesh, Scene};
+use crate::{
+    asset::Asset,
+    conversion::Exporter,
+    scene::{Animation, Joint, Mesh, Scene},
+};
 
 #[derive(Default)]
 pub struct GltfExporter {}

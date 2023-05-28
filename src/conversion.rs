@@ -2,17 +2,11 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::Result;
 
-use crate::format::{
-    FrmExporter, FrmImporter, GltfExporter, GltfImporter, P3mExporter, P3mImporter,
-};
-
-pub use self::{
+use crate::{
     asset::Asset,
-    scene::{Animation, Joint, Keyframe, Mesh, Scene, Vertex},
+    formats::{FrmExporter, FrmImporter, GltfExporter, GltfImporter, P3mExporter, P3mImporter},
+    scene::Scene,
 };
-
-mod asset;
-mod scene;
 
 /// Defines a type that can import asset files into a scene.
 #[allow(unused_variables)]
@@ -57,7 +51,7 @@ impl Converter {
             .filter_map(|result| match result {
                 Ok(asset) => Some(asset),
                 Err(err) => {
-                    eprintln!("{}", err.to_string());
+                    eprintln!("{}", err);
                     None
                 }
             })
@@ -74,7 +68,7 @@ impl Converter {
                                 Some(scene)
                             }
                             Err(err) => {
-                                eprintln!("Failure: {}", err.to_string());
+                                eprintln!("Failure: {}", err);
                                 None
                             }
                         }
@@ -93,7 +87,7 @@ impl Converter {
         // Merge imported scenes.
         match scenes.into_iter().reduce(|a, b| a.merge(b)) {
             Some(scene) => {
-                fs::create_dir_all(&out_path).unwrap_or_else(|err| {
+                fs::create_dir_all(out_path).unwrap_or_else(|err| {
                     eprintln!("Failed to create the output directory: {}", err)
                 });
 
@@ -137,7 +131,7 @@ impl Converter {
                             }
                         }
                         Err(err) => {
-                            eprintln!("Failed to export the scene: {}", err.to_string());
+                            eprintln!("Failed to export the scene: {}", err);
                         }
                     }
                 }

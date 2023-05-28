@@ -1,12 +1,14 @@
-// WARNING: GLTF importing does not work properly yet.
-
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
 use glam::{Mat4, Quat, Vec2, Vec3, Vec3A};
 use gltf::animation::{util::ReadOutputs, Property};
 
-use crate::conversion::{Animation, Asset, Importer, Joint, Keyframe, Mesh, Scene, Vertex};
+use crate::{
+    asset::Asset,
+    conversion::Importer,
+    scene::{Animation, Joint, Keyframe, Mesh, Scene, Vertex},
+};
 
 #[derive(Default)]
 pub struct GltfImporter {}
@@ -63,7 +65,7 @@ fn make_joint_map(gltf: &gltf::Gltf) -> HashMap<usize, usize> {
                     return Some((node.index(), joint_index));
                 }
             }
-            return None;
+            None
         })
         .collect()
 }
