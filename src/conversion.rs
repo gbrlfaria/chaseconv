@@ -96,17 +96,7 @@ impl Converter {
                     match exporter.export(&scene) {
                         Ok(assets) => {
                             for asset in assets {
-                                let mut path = PathBuf::from(out_path).join(asset.path());
-                                if path.exists() {
-                                    let uid = &uuid::Uuid::new_v4().to_simple().to_string();
-                                    path = PathBuf::from(out_path).join(format!(
-                                        "{}_{}.{}",
-                                        asset.name(),
-                                        &uid[..uid.len() / 2],
-                                        asset.extension()
-                                    ));
-                                }
-
+                                let path = PathBuf::from(out_path).join(asset.path());
                                 match fs::write(&path, &asset.bytes) {
                                     Ok(_) => {
                                         eprintln!(
