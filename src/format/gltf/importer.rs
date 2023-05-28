@@ -16,11 +16,12 @@ impl Importer for GltfImporter {
         let gltf = gltf::Gltf::from_slice(&asset.bytes)?;
         let buffers = load_buffers(&gltf, asset.path())?;
 
+        let skin_map = make_skin_map(&gltf);
         let joint_map = make_joint_map(&gltf);
         let skeleton_root_index = get_skeleton_root_index(&gltf);
 
         let joints = convert_joints(&gltf, &joint_map);
-        let mut meshes = convert_meshes(&gltf, &buffers, &joint_map);
+        let mut meshes = convert_meshes(&gltf, &buffers, &joint_map, &skin_map);
         let mut animations = convert_animations(&gltf, &buffers, &joint_map, skeleton_root_index);
 
         scene.skeleton = joints;
@@ -35,6 +36,20 @@ impl Importer for GltfImporter {
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
     }
+}
+
+/// Returns a mapping between joint indices (referenced by skinned vertex data)
+/// and node indices.
+fn make_skin_map(gltf: &gltf::Gltf) -> HashMap<usize, usize> {
+    gltf.skins()
+        .next()
+        .map(|skin| {
+            skin.joints()
+                .enumerate()
+                .map(|(index, node)| (index, node.index()))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Returns a mapping between GLTF node indices and joint indices from the
@@ -257,6 +272,7 @@ fn convert_meshes(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
     joint_map: &HashMap<usize, usize>,
+    skin_map: &HashMap<usize, usize>,
 ) -> Vec<Mesh> {
     let mut meshes = Vec::new();
     for mesh in gltf.meshes() {
@@ -311,7 +327,8 @@ fn convert_meshes(
                         })
                         .unwrap();
                     let joint = if weight > 0.0 {
-                        joint_map.get(&(*joint as usize)).copied()
+                        let joint = skin_map.get(&(*joint as usize)).unwrap();
+                        joint_map.get(joint).copied()
                     } else {
                         None
                     };
