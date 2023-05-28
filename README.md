@@ -35,13 +35,15 @@ There are limitations, however:
 
 ### Importing
 
-Importing GLTF files actually doesn't work well unless they were exported by Chaseconv. But you're invited to add support for external files yourself.
+- All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be called "root".
+- Bones should have no rotation in the bind pose. When importing GLTF files into Blender, make sure to set the bone direction configuration to "Blender".
+- Regarding animations, the bones of the model only support rotation. Likewise, the root bone only supports translations.
 
 ## Contributing
 
-- Found a bug? Please file an issue describing the problem.
+- Found a bug? Please create an issue describing the problem.
 
-- Want a new feature? Feel free to leave a pull request. Some opportunities for new features are:
-  - Support importing externally generated GLTF files (e.g. models and animations from Blender).
+- Looking for a specific feature? Feel free to leave a pull request. Some opportunities for new features are:
   - Add a command-line interface (CLI) to make mass-exporting files feasible.
   - Add support for other data formats (COLLADA, OBJ, etc.).
+  - Relax some of the restrictions on the imported models.
