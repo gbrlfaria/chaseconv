@@ -41,11 +41,6 @@ impl Exporter for P3mExporter {
     }
 }
 
-// The conversion is slightly different from the official one. Here, each angle
-// bone corresponds to exactly one position bone, whereas official character models
-// usually have one position bone for the two 'root' angle bones. Nonetheless,
-// the number and the indexes of angle bones stay the same, so it should work fine
-// as they are the ones actually used in the game.
 fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
     let mut position_bones = Vec::new();
     let mut angle_bones = Vec::new();
@@ -70,6 +65,27 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
                 .collect(),
             ..Default::default()
         });
+    }
+
+    // Aggregate root position bones and adjust position bone child indices.
+    let mut count = 0;
+    for (index, joint) in joints.iter().take(MAX_NUM_BONES).enumerate() {
+        if joint.parent.is_none() {
+            if count > 0 {
+                position_bones
+                    .get_mut(0)
+                    .map(|pos_bone| pos_bone.children.push(index as u8));
+                position_bones.remove(index);
+                for ang_bone in &mut angle_bones {
+                    for child in &mut ang_bone.children {
+                        if *child > index as u8 {
+                            *child = *child - 1;
+                        }
+                    }
+                }
+            }
+            count += 1;
+        }
     }
 
     (position_bones, angle_bones)
