@@ -136,9 +136,9 @@ impl Converter {
 // Returns all importers available.
 fn importers() -> Vec<Box<dyn Importer>> {
     vec![
-        Box::new(FrmImporter::default()),
-        Box::new(P3mImporter::default()),
-        Box::new(GltfImporter::default()),
+        Box::<FrmImporter>::default(),
+        Box::<P3mImporter>::default(),
+        Box::<GltfImporter>::default(),
     ]
 }
 
@@ -147,14 +147,11 @@ pub fn converters() -> Vec<Converter> {
     vec![
         Converter {
             name: ".GLB (glTF)",
-            exporters: vec![Box::new(GltfExporter::default())],
+            exporters: vec![Box::<GltfExporter>::default()],
         },
         Converter {
             name: ".P3M/FRM (Grand Chase)",
-            exporters: vec![
-                Box::new(P3mExporter::default()),
-                Box::new(FrmExporter::default()),
-            ],
+            exporters: vec![Box::<P3mExporter>::default(), Box::<FrmExporter>::default()],
         },
     ]
 }
