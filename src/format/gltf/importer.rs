@@ -155,7 +155,7 @@ fn convert_joints(gltf: &gltf::Gltf, joint_map: &HashMap<usize, usize>) -> Vec<J
 }
 
 /// The animation input time should already be sampled at 55 FPS. All channels should be
-/// the same length.
+/// the same length. Joint translations and scales are ignored.
 fn convert_animations(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
@@ -235,7 +235,7 @@ fn convert_animations(
                 let num_transforms = joint_map.len();
                 let transforms: Vec<Mat4> = (0..num_transforms)
                     .map(|j| {
-                        let translation = translations
+                        let _ = translations
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()
@@ -245,12 +245,17 @@ fn convert_animations(
                             .and_then(|v| v.get(i))
                             .copied()
                             .unwrap_or(Quat::IDENTITY);
-                        let scale = scales
+                        let _ = scales
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()
                             .unwrap_or_else(|| Vec3::new(1., 1., 1.));
-                        Mat4::from_scale_rotation_translation(scale, rotation, translation)
+
+                        // Currently, translation and scale are ignored. Only rotation
+                        // is taken into account. In order to use the entire transform,
+                        // it would be necessary to apply the inverse joint transforms
+                        // from the default pose.
+                        Mat4::from_rotation_translation(rotation, Vec3::ZERO)
                     })
                     .collect();
                 Keyframe {
