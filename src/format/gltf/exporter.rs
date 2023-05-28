@@ -189,10 +189,15 @@ fn insert_skins(
     if scene.skeleton.is_empty() {
         return Ok(());
     }
+
     let inverse_bind_accessor = insert_inverse_bind_bytes(root, buffer, scene)?;
     root.skins = vec![json::Skin {
         inverse_bind_matrices: Some(json::Index::new(inverse_bind_accessor as u32)),
         joints: (0..scene.skeleton.len())
+            // We include the root of the skeleton as a part of the bone hierarchy,
+            // mostly for compatibility purposes with tools such as Blender. The
+            // inverse bind matrix of the root is added accordingly.
+            .chain(std::iter::once(skeleton_index))
             .map(|index| json::Index::new(index as u32))
             .collect(),
         skeleton: Some(json::Index::new(skeleton_index as u32)),
@@ -639,7 +644,7 @@ fn insert_inverse_bind_bytes(
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
-        count: scene.skeleton.len() as u32,
+        count: (scene.skeleton.len() + 1) as u32,
         type_: Checked::Valid(json::accessor::Type::Mat4),
         component_type: Checked::Valid(json::accessor::GenericComponentType(
             json::accessor::ComponentType::F32,
@@ -657,7 +662,7 @@ fn insert_inverse_bind_bytes(
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (scene.skeleton.len() * mem::size_of::<[f32; 4 * 4]>()) as u32,
+        byte_length: ((scene.skeleton.len() + 1) * mem::size_of::<[f32; 4 * 4]>()) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -673,6 +678,11 @@ fn insert_inverse_bind_bytes(
         for value in matrix.to_cols_array() {
             buffer.write_f32::<LE>(value)?;
         }
+    }
+    // Write root inverse bind matrix.
+    let matrix = Mat4::IDENTITY;
+    for value in matrix.to_cols_array() {
+        buffer.write_f32::<LE>(value)?;
     }
 
     root.accessors.push(accessor);
