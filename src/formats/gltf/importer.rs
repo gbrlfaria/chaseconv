@@ -254,9 +254,7 @@ fn convert_animations(
                             .unwrap_or_else(|| Vec3::new(1., 1., 1.));
 
                         // Currently, translation and scale are ignored. Only rotation
-                        // is taken into account. In order to use the entire transform,
-                        // it would be necessary to apply the inverse joint transforms
-                        // from the default pose.
+                        // is taken into account.
                         Mat4::from_rotation_translation(rotation, Vec3::ZERO)
                     })
                     .collect();
