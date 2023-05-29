@@ -84,11 +84,6 @@ fn get_skeleton_root_index(gltf: &gltf::Gltf) -> Option<usize> {
 }
 
 fn convert_joints(gltf: &gltf::Gltf, joint_map: &HashMap<usize, usize>) -> Vec<Joint> {
-    let nodes = gltf
-        .nodes()
-        .map(|x| (x.index(), x))
-        .collect::<HashMap<_, _>>();
-
     // Compute a mapping between child nodes and their parents. This is necessary because
     // the intermediary joint representation keeps track of the each joint's parent.
     let mut child_parent_map = HashMap::new();
@@ -98,49 +93,14 @@ fn convert_joints(gltf: &gltf::Gltf, joint_map: &HashMap<usize, usize>) -> Vec<J
         }
     }
 
-    // Compute absolute joint positions.
-    let mut joint_absolute_positions = HashMap::new();
-    for node in gltf.nodes() {
-        let mut transform = Mat4::from_cols_array_2d(&node.transform().matrix());
-
-        let mut current_node = &node;
-        while let Some(parent) = child_parent_map
-            .get(&current_node.index())
-            .and_then(|index| nodes.get(index))
-        {
-            let parent_transform = Mat4::from_cols_array_2d(&parent.transform().matrix());
-            transform = parent_transform.mul_mat4(&transform);
-            current_node = parent;
-        }
-
-        let position = transform.transform_point3a(Vec3A::ZERO);
-        joint_absolute_positions.insert(node.index(), position);
-    }
-
-    // Calculate joint positions relative to their parents in order to do away with
-    // the rotation transforms of each joint. This is done because the intermediary
-    // representation doesn't allow joints to have default rotations.
-    let joint_relative_positions = joint_absolute_positions
-        .iter()
-        .map(|(index, &position)| {
-            let parent_position = child_parent_map
-                .get(index)
-                .and_then(|parent_index| joint_absolute_positions.get(parent_index))
-                .copied()
-                .unwrap_or(Vec3A::ZERO);
-            (index, position - parent_position)
-        })
-        .collect::<HashMap<_, _>>();
-
     let max_index = joint_map.values().max().copied().unwrap_or_default();
     let mut joints = vec![Joint::default(); max_index + 1];
     for node in gltf.nodes() {
         if let Some(&joint_index) = joint_map.get(&node.index()) {
+            let (translation, rotation, _scale) = node.transform().decomposed();
             *joints.get_mut(joint_index).unwrap() = Joint {
-                translation: joint_relative_positions
-                    .get(&node.index())
-                    .copied()
-                    .unwrap(),
+                translation: translation.into(),
+                rotation: Quat::from_array(rotation),
                 parent: child_parent_map
                     .get(&node.index())
                     .and_then(|index| joint_map.get(index))
@@ -237,7 +197,7 @@ fn convert_animations(
                 let num_transforms = joint_map.len();
                 let transforms: Vec<Mat4> = (0..num_transforms)
                     .map(|j| {
-                        let _ = translations
+                        let _translation = translations
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()
@@ -247,7 +207,7 @@ fn convert_animations(
                             .and_then(|v| v.get(i))
                             .copied()
                             .unwrap_or(Quat::IDENTITY);
-                        let _ = scales
+                        let _scale = scales
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()

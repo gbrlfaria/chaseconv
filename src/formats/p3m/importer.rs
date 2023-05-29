@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use glam::Vec3A;
+use glam::{EulerRot, Quat, Vec3A};
 
 use crate::{
     asset::Asset,
@@ -42,6 +42,15 @@ fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) ->
 
     // Update joint children by squashing position and angle bones.
     for (joint, a_bone) in joints.iter_mut().zip(angle_bones) {
+        // In practice, this is unnecessary as standard P3M angle bones have zero rotation
+        // and are unused. This is added for compatibility with non-standard P3M files.
+        joint.rotation = Quat::from_euler(
+            EulerRot::XYZ,
+            a_bone.position[0],
+            a_bone.position[1],
+            a_bone.position[2],
+        );
+
         let children = a_bone
             .children
             .iter()
@@ -87,7 +96,9 @@ fn convert_vertices(
         .map(|vertex| {
             let joint = vertex.bone_index as usize - num_position_bones;
             Vertex {
-                position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
+                position: scene
+                    .joint_world_transform(joint)
+                    .transform_point3a(Vec3A::from(vertex.position)),
                 normal: Vec3A::from(vertex.normal),
                 uv: vertex.uv.into(),
                 joint: if joint != INVALID_BONE_INDEX as usize {
@@ -146,6 +157,7 @@ mod tests {
             meshes: Vec::new(),
             skeleton: vec![Joint {
                 translation: Vec3A::new(1., 1., 1.),
+                rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
             }],
@@ -224,21 +236,25 @@ mod tests {
         let expected = vec![
             Joint {
                 translation: Vec3A::new(1., 1., 1.),
+                rotation: Quat::default(),
                 parent: None,
                 children: vec![2],
             },
             Joint {
                 translation: Vec3A::new(1., 1., 1.),
+                rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
             },
             Joint {
                 translation: Vec3A::new(2., 2., 2.),
+                rotation: Quat::default(),
                 parent: Some(0),
                 children: vec![3],
             },
             Joint {
                 translation: Vec3A::new(3., 3., 3.),
+                rotation: Quat::default(),
                 parent: Some(2),
                 children: Vec::new(),
             },

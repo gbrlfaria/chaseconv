@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3A};
+use glam::{Mat4, Quat, Vec2, Vec3A};
 
 /// Represents a 3D scene comprised of skeleton, meshes, and animations.
 /// It's the intermediary format between conversions and provides some operations.
@@ -12,17 +12,20 @@ pub struct Scene {
 }
 
 impl Scene {
-    /// Returns the translation of the joint with the given index, relative to the origin of
+    /// Returns the transform of the joint with the given index, relative to the origin of
     /// the scene.
-    pub fn joint_world_translation(&self, index: usize) -> Vec3A {
+    pub fn joint_world_transform(&self, index: usize) -> Mat4 {
         let mut joint = &self.skeleton[index];
-        let mut translation = joint.translation;
+        let mut transform =
+            Mat4::from_rotation_translation(joint.rotation, joint.translation.into());
+
         while let Some(parent) = joint.parent {
             joint = &self.skeleton[parent];
-            translation += joint.translation;
+            transform = Mat4::from_rotation_translation(joint.rotation, joint.translation.into())
+                .mul_mat4(&transform);
         }
 
-        translation
+        transform
     }
 
     pub fn merge(mut self, mut other: Scene) -> Self {
@@ -47,11 +50,13 @@ pub struct Mesh {
     pub indices: Vec<usize>,
 }
 
-/// Represents a joint of the [`Scene`] skeleton. It only supports translation.
+/// Represents a joint of the [`Scene`] skeleton.
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct Joint {
     /// The translation of the joint, relative to its parent.
     pub translation: Vec3A,
+    /// The rotation of the joint, relative to its parent.
+    pub rotation: Quat,
     /// The index of the parent of the joint. The index refers to the [`Scene`] skeleton.
     pub parent: Option<usize>,
     /// The indexes of the children of the joint. The indexes refer to the [`Scene`] skeleton.
@@ -112,6 +117,7 @@ pub struct Keyframe {
 
 #[cfg(test)]
 mod tests {
+    use glam::Vec3;
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -123,21 +129,25 @@ mod tests {
             skeleton: vec![
                 Joint {
                     translation: Vec3A::new(1., 1., 1.),
+                    rotation: Quat::default(),
                     parent: None,
                     children: vec![1, 2],
                 },
                 Joint {
                     translation: Vec3A::new(2., 2., 2.),
+                    rotation: Quat::default(),
                     parent: Some(0),
                     children: vec![3],
                 },
                 Joint {
                     translation: Vec3A::new(4., 4., 4.),
+                    rotation: Quat::default(),
                     parent: Some(0),
                     children: Vec::new(),
                 },
                 Joint {
                     translation: Vec3A::new(0., 0., 0.),
+                    rotation: Quat::default(),
                     parent: Some(1),
                     children: Vec::new(),
                 },
@@ -145,20 +155,20 @@ mod tests {
             animations: Vec::new(),
         };
 
-        let actual = scene.joint_world_translation(0);
-        let expected = Vec3A::new(1., 1., 1.);
+        let actual = scene.joint_world_transform(0);
+        let expected = Mat4::from_translation(Vec3::new(1., 1., 1.));
         assert_eq!(expected, actual);
 
-        let actual = scene.joint_world_translation(1);
-        let expected = Vec3A::new(3., 3., 3.);
+        let actual = scene.joint_world_transform(1);
+        let expected = Mat4::from_translation(Vec3::new(3., 3., 3.));
         assert_eq!(expected, actual);
 
-        let actual = scene.joint_world_translation(2);
-        let expected = Vec3A::new(5., 5., 5.);
+        let actual = scene.joint_world_transform(2);
+        let expected = Mat4::from_translation(Vec3::new(5., 5., 5.));
         assert_eq!(expected, actual);
 
-        let actual = scene.joint_world_translation(3);
-        let expected = Vec3A::new(3., 3., 3.);
+        let actual = scene.joint_world_transform(3);
+        let expected = Mat4::from_translation(Vec3::new(3., 3., 3.));
         assert_eq!(expected, actual);
     }
 }

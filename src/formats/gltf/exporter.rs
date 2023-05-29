@@ -2,7 +2,7 @@ use std::{collections::HashMap, mem};
 
 use anyhow::Result;
 use byteorder::{WriteBytesExt, LE};
-use glam::{Mat4, Vec4};
+use glam::Mat4;
 use gltf::{
     json::{
         self,
@@ -675,10 +675,7 @@ fn insert_inverse_bind_bytes(
     };
 
     for (index, _) in scene.skeleton.iter().enumerate() {
-        let translation = Vec4::from((-scene.joint_world_translation(index), 1.));
-
-        let mut matrix = Mat4::IDENTITY;
-        matrix.w_axis = translation;
+        let matrix = scene.joint_world_transform(index).inverse();
         for value in matrix.to_cols_array() {
             buffer.write_f32::<LE>(value)?;
         }
@@ -862,7 +859,7 @@ fn align_to(buffer: &mut Vec<u8>, n: usize) {
 
 #[cfg(test)]
 mod tests {
-    use glam::Vec3A;
+    use glam::{Quat, Vec3A};
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -873,16 +870,19 @@ mod tests {
         let skeleton = [
             Joint {
                 translation: Vec3A::new(1., 1., 1.),
+                rotation: Quat::default(),
                 parent: None,
                 children: vec![1],
             },
             Joint {
                 translation: Vec3A::new(2., 2., 2.),
+                rotation: Quat::default(),
                 parent: Some(0),
                 children: Vec::new(),
             },
             Joint {
                 translation: Vec3A::new(0., 0., 0.),
+                rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
             },

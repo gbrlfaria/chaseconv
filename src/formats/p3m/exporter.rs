@@ -1,5 +1,5 @@
 use anyhow::Result;
-use glam::Vec3A;
+use glam::Mat4;
 
 use crate::{
     asset::Asset,
@@ -106,13 +106,16 @@ fn convert_vertices(
     let mut mesh_vertices = Vec::new();
 
     for vertex in &mesh.vertices {
-        let joint_translation = match vertex.joint {
-            Some(index) => scene.joint_world_translation(index),
-            None => Vec3A::new(0., 0., 0.),
+        let joint_transform = match vertex.joint {
+            Some(index) => scene.joint_world_transform(index),
+            None => Mat4::IDENTITY,
         };
 
         skin_vertices.push(SkinVertex {
-            position: (vertex.position - joint_translation).into(),
+            position: joint_transform
+                .inverse()
+                .transform_point3a(vertex.position)
+                .into(),
             bone_index: match vertex.joint {
                 Some(index) => (index + num_position_bones) as u8,
                 None => INVALID_BONE_INDEX,

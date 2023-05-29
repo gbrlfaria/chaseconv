@@ -38,6 +38,7 @@ There are limitations, however:
 - All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be called "root".
 - Bones should have no rotation in the bind pose. When importing GLTF files into Blender, make sure to set the bone direction configuration to "Blender".
 - Regarding animations, the bones of the model only support rotations. Likewise, the root bone only supports translations.
+- Only the first skeleton/skin in each GLTF file will be taken into account.
 
 ## Contributing
 
