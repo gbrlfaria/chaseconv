@@ -17,7 +17,7 @@ You can download the application in the [Releases Page](https://github.com/gabri
 Using the program is straightforward:
 
 1. Drag and drop the desired files onto `chaseconv.exe` (they should belong to the same model!).
-2. Select the format you want to convert the files to.
+2. Select the format you want to convert the files into.
 3. Select the output folder.
 
 Here's a small demonstration:
