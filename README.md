@@ -1,10 +1,10 @@
 # Chaseconv
 
-[![](https://img.shields.io/badge/version-v0.1.0-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
+[![](https://img.shields.io/badge/version-v0.2.0-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/downloads/gabriel-dev/chaseconv/latest/total)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/license/gabriel-dev/chaseconv)](./LICENSE)
 
-Chaseconv is a fast and simple 3D asset converter for [Grand Chase](https://en.wikipedia.org/wiki/Grand_Chase). It can convert 3D assets from the game to GLTF files and vice-versa.
+Chaseconv is a fast and simple 3D asset converter for [Grand Chase](https://en.wikipedia.org/wiki/Grand_Chase). It can convert 3D assets from the game into GLTF files and vice-versa.
 
 ![](img/example.png)
 
@@ -35,9 +35,9 @@ There are limitations, however:
 
 ### Importing
 
-- All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be called "root".
+- All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be named "root".
 - Bones should have no rotation in the bind pose. When importing GLTF files into Blender, make sure to set the bone direction configuration to "Blender".
-- Regarding animations, the bones of the model only support rotations. Likewise, the root bone only supports translations.
+- Regarding animations, the bones of the model only support rotations, whereas the root bone only supports translations.
 - Only the first skeleton/skin in each GLTF file will be taken into account.
 
 ## Contributing
