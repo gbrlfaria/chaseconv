@@ -1,12 +1,14 @@
-// WARNING: GLTF importing does not work properly yet.
-
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
 use glam::{Mat4, Quat, Vec2, Vec3, Vec3A};
 use gltf::animation::{util::ReadOutputs, Property};
 
-use crate::conversion::{Animation, Asset, Importer, Joint, Keyframe, Mesh, Scene, Vertex};
+use crate::{
+    asset::Asset,
+    conversion::Importer,
+    scene::{Animation, Joint, Keyframe, Mesh, Scene, Vertex},
+};
 
 #[derive(Default)]
 pub struct GltfImporter {}
@@ -16,17 +18,13 @@ impl Importer for GltfImporter {
         let gltf = gltf::Gltf::from_slice(&asset.bytes)?;
         let buffers = load_buffers(&gltf, asset.path())?;
 
-        let mut joint_map = HashMap::new();
-        if let Some(skin) = gltf.skins().next() {
-            for node in skin.joints() {
-                joint_map.insert(node.index(), joint_map.len());
-            }
-        }
-        let joints = convert_joints(&gltf, &mut joint_map);
-        let skeleton_index = get_skeleton_index(&gltf);
+        let skin_map = make_skin_map(&gltf);
+        let joint_map = make_joint_map(&gltf);
+        let skeleton_root_index = get_skeleton_root_index(&gltf);
 
-        let mut meshes = convert_meshes(&gltf, &buffers, &joint_map);
-        let mut animations = convert_animations(&gltf, &buffers, &joint_map, skeleton_index);
+        let joints = convert_joints(&gltf, &joint_map);
+        let mut meshes = convert_meshes(&gltf, &buffers, &joint_map, &skin_map);
+        let mut animations = convert_animations(&gltf, &buffers, &joint_map, skeleton_root_index);
 
         scene.skeleton = joints;
         scene.meshes.append(&mut meshes);
@@ -42,23 +40,56 @@ impl Importer for GltfImporter {
     }
 }
 
-fn convert_joints(gltf: &gltf::Gltf, joint_map: &mut HashMap<usize, usize>) -> Vec<Joint> {
-    const PREFIX: &str = "bone_";
+/// Returns a mapping between joint indices (referenced by skinned vertex data)
+/// and node indices.
+fn make_skin_map(gltf: &gltf::Gltf) -> HashMap<usize, usize> {
+    gltf.skins()
+        .next()
+        .map(|skin| {
+            skin.joints()
+                .enumerate()
+                .map(|(index, node)| (index, node.index()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
-    let mut parents = HashMap::new();
-    for node in gltf.nodes() {
-        let node_name = node.name().unwrap_or_default();
-        if true {
-            // If the name of the node has the format "bone_X", set the index of the joint to X.
-            // This is done to maintain the compatibility with the bones of the original format.
-            if let Some(stripped) = node_name.strip_prefix(PREFIX) {
+/// Returns a mapping between GLTF node indices and joint indices from the
+/// internal scene representation. Only joints named "bone_XX" are considered.
+fn make_joint_map(gltf: &gltf::Gltf) -> HashMap<usize, usize> {
+    gltf.nodes()
+        .filter_map(|node| {
+            let node_name = node.name().unwrap_or_default();
+            if let Some(stripped) = node_name.strip_prefix("bone_") {
                 if let Ok(joint_index) = stripped.parse() {
-                    joint_map.insert(node.index(), joint_index);
+                    return Some((node.index(), joint_index));
                 }
             }
-            for child in node.children() {
-                parents.insert(child.index(), node.index());
-            }
+            None
+        })
+        .collect()
+}
+
+/// Returns the index of the skeleton root node. The skeleton of the root
+/// node is the first node whose name is "root". This node is used to
+/// apply translations to the whole skeleton in animations.
+fn get_skeleton_root_index(gltf: &gltf::Gltf) -> Option<usize> {
+    gltf.nodes().find_map(|node| {
+        if node.name().unwrap_or_default() == "root" {
+            Some(node.index())
+        } else {
+            None
+        }
+    })
+}
+
+fn convert_joints(gltf: &gltf::Gltf, joint_map: &HashMap<usize, usize>) -> Vec<Joint> {
+    // Compute a mapping between child nodes and their parents. This is necessary because
+    // the intermediary joint representation keeps track of the each joint's parent.
+    let mut child_parent_map = HashMap::new();
+    for node in gltf.nodes() {
+        for child in node.children() {
+            child_parent_map.insert(child.index(), node.index());
         }
     }
 
@@ -66,10 +97,11 @@ fn convert_joints(gltf: &gltf::Gltf, joint_map: &mut HashMap<usize, usize>) -> V
     let mut joints = vec![Joint::default(); max_index + 1];
     for node in gltf.nodes() {
         if let Some(&joint_index) = joint_map.get(&node.index()) {
-            let (t, _, _) = node.transform().decomposed();
+            let (translation, rotation, _scale) = node.transform().decomposed();
             *joints.get_mut(joint_index).unwrap() = Joint {
-                translation: t.into(),
-                parent: parents
+                translation: translation.into(),
+                rotation: Quat::from_array(rotation),
+                parent: child_parent_map
                     .get(&node.index())
                     .and_then(|index| joint_map.get(index))
                     .copied(),
@@ -84,26 +116,13 @@ fn convert_joints(gltf: &gltf::Gltf, joint_map: &mut HashMap<usize, usize>) -> V
     joints
 }
 
-/// Returns the index of the skeleton root node. The skeleton of the root
-/// node is the first node whose name starts with "root". This node is used to
-/// apply translations to the whole skeleton in animations.
-fn get_skeleton_index(gltf: &gltf::Gltf) -> Option<usize> {
-    gltf.nodes().find_map(|node| {
-        if node.name().unwrap_or_default().starts_with("root") {
-            Some(node.index())
-        } else {
-            None
-        }
-    })
-}
-
 /// The animation input time should already be sampled at 55 FPS. All channels should be
-/// the same length.
+/// the same length. Joint translations and scales are ignored.
 fn convert_animations(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
     joint_map: &HashMap<usize, usize>,
-    skeleton_index: Option<usize>,
+    skeleton_root_index: Option<usize>,
 ) -> Vec<Animation> {
     let mut result = Vec::new();
     for animation in gltf.animations() {
@@ -116,9 +135,10 @@ fn convert_animations(
         let mut num_frames = 0;
         for channel in animation.channels() {
             let index = channel.target().node().index();
-            if Some(index) == skeleton_index && channel.target().property() == Property::Translation
+            if Some(index) == skeleton_root_index
+                && channel.target().property() == Property::Translation
             {
-                // ROOT TRANSLATIONS
+                // Root translations
                 let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
                 root_translations = reader
                     .read_outputs()
@@ -129,7 +149,7 @@ fn convert_animations(
                     .unwrap_or_default();
                 num_frames = num_frames.max(root_translations.len());
             } else if joint_map.contains_key(&index) {
-                // BONE TRANSFORMS
+                // Joint transforms
                 let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
                 match channel.target().property() {
                     Property::Translation => {
@@ -177,7 +197,7 @@ fn convert_animations(
                 let num_transforms = joint_map.len();
                 let transforms: Vec<Mat4> = (0..num_transforms)
                     .map(|j| {
-                        let translation = translations
+                        let _translation = translations
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()
@@ -187,12 +207,15 @@ fn convert_animations(
                             .and_then(|v| v.get(i))
                             .copied()
                             .unwrap_or(Quat::IDENTITY);
-                        let scale = scales
+                        let _scale = scales
                             .get(j)
                             .and_then(|v| v.get(i))
                             .copied()
                             .unwrap_or_else(|| Vec3::new(1., 1., 1.));
-                        Mat4::from_scale_rotation_translation(scale, rotation, translation)
+
+                        // Currently, translation and scale are ignored. Only rotation
+                        // is taken into account.
+                        Mat4::from_rotation_translation(rotation, Vec3::ZERO)
                     })
                     .collect();
                 Keyframe {
@@ -214,6 +237,7 @@ fn convert_meshes(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
     joint_map: &HashMap<usize, usize>,
+    skin_map: &HashMap<usize, usize>,
 ) -> Vec<Mesh> {
     let mut meshes = Vec::new();
     for mesh in gltf.meshes() {
@@ -268,7 +292,8 @@ fn convert_meshes(
                         })
                         .unwrap();
                     let joint = if weight > 0.0 {
-                        joint_map.get(&(*joint as usize)).copied()
+                        let joint = skin_map.get(&(*joint as usize)).unwrap();
+                        joint_map.get(joint).copied()
                     } else {
                         None
                     };

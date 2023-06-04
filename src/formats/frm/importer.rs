@@ -1,7 +1,11 @@
 use anyhow::Context;
 use glam::{Mat4, Vec3A};
 
-use crate::conversion::{Animation, Asset, Importer, Keyframe, Scene};
+use crate::{
+    asset::Asset,
+    conversion::Importer,
+    scene::{Animation, Keyframe, Scene},
+};
 
 use super::internal::Frm;
 
@@ -54,7 +58,7 @@ fn convert_frames(frm: &Frm) -> Vec<Keyframe> {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::format::frm::internal::{Frame, FrmVersion};
+    use crate::formats::frm::internal::{Frame, FrmVersion};
 
     use super::*;
 

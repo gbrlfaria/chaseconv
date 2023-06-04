@@ -1,7 +1,11 @@
 use anyhow::Result;
-use glam::Vec3A;
+use glam::Mat4;
 
-use crate::conversion::{Asset, Exporter, Joint, Mesh, Scene};
+use crate::{
+    asset::Asset,
+    conversion::Exporter,
+    scene::{Joint, Mesh, Scene},
+};
 
 use super::internal::{
     AngleBone, MeshVertex, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX, MAX_NUM_BONES,
@@ -41,11 +45,6 @@ impl Exporter for P3mExporter {
     }
 }
 
-// The conversion is slightly different from the official one. Here, each angle
-// bone corresponds to exactly one position bone, whereas official character models
-// usually have one position bone for the two 'root' angle bones. Nonetheless,
-// the number and the indexes of angle bones stay the same, so it should work fine
-// as they are the ones actually used in the game.
 fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
     let mut position_bones = Vec::new();
     let mut angle_bones = Vec::new();
@@ -72,6 +71,29 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
         });
     }
 
+    // Aggregate root position bones and adjust position bone child indices.
+    let mut count = 0;
+    for (index, joint) in joints.iter().take(MAX_NUM_BONES).enumerate() {
+        if joint.parent.is_none() {
+            if count > 0 {
+                position_bones
+                    .get_mut(0)
+                    .unwrap()
+                    .children
+                    .push(index as u8);
+                position_bones.remove(index);
+                for ang_bone in &mut angle_bones {
+                    for child in &mut ang_bone.children {
+                        if *child > index as u8 {
+                            *child -= 1;
+                        }
+                    }
+                }
+            }
+            count += 1;
+        }
+    }
+
     (position_bones, angle_bones)
 }
 
@@ -84,13 +106,16 @@ fn convert_vertices(
     let mut mesh_vertices = Vec::new();
 
     for vertex in &mesh.vertices {
-        let joint_translation = match vertex.joint {
-            Some(index) => scene.joint_world_translation(index),
-            None => Vec3A::new(0., 0., 0.),
+        let joint_transform = match vertex.joint {
+            Some(index) => scene.joint_world_transform(index),
+            None => Mat4::IDENTITY,
         };
 
         skin_vertices.push(SkinVertex {
-            position: (vertex.position - joint_translation).into(),
+            position: joint_transform
+                .inverse()
+                .transform_point3a(vertex.position)
+                .into(),
             bone_index: match vertex.joint {
                 Some(index) => (index + num_position_bones) as u8,
                 None => INVALID_BONE_INDEX,

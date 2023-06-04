@@ -1,10 +1,10 @@
 # Chaseconv
 
-[![](https://img.shields.io/badge/version-v0.1.0-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
+[![](https://img.shields.io/badge/version-v0.2.0-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/downloads/gabriel-dev/chaseconv/latest/total)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/license/gabriel-dev/chaseconv)](./LICENSE)
 
-Chaseconv is a fast and simple 3D asset converter for [Grand Chase](https://en.wikipedia.org/wiki/Grand_Chase). It can convert 3D assets from the game to GLTF files and vice-versa.
+Chaseconv is a fast and simple 3D asset converter for [Grand Chase](https://en.wikipedia.org/wiki/Grand_Chase). It can convert 3D assets from the game into GLTF files and vice-versa.
 
 ![](img/example.png)
 
@@ -17,7 +17,7 @@ You can download the application in the [Releases Page](https://github.com/gabri
 Using the program is straightforward:
 
 1. Drag and drop the desired files onto `chaseconv.exe` (they should belong to the same model!).
-2. Select the format you want to convert the files to.
+2. Select the format you want to convert the files into.
 3. Select the output folder.
 
 Here's a small demonstration:
@@ -35,13 +35,16 @@ There are limitations, however:
 
 ### Importing
 
-Importing GLTF files actually doesn't work well unless they were exported by Chaseconv. But you're invited to add support for external files yourself.
+- All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be named "root".
+- Bones should have no rotation in the bind pose. When importing GLTF files into Blender, make sure to set the bone direction configuration to "Blender".
+- Regarding animations, the bones of the model only support rotations, whereas the root bone only supports translations.
+- Only the first skeleton/skin in each GLTF file will be taken into account.
 
 ## Contributing
 
-- Found a bug? Please file an issue describing the problem.
+- Found a bug? Please create an issue describing the problem.
 
-- Want a new feature? Feel free to leave a pull request. Some opportunities for new features are:
-  - Support importing externally generated GLTF files (e.g. models and animations from Blender).
+- Looking for a specific feature? Feel free to leave a pull request. Some opportunities for new features are:
   - Add a command-line interface (CLI) to make mass-exporting files feasible.
   - Add support for other data formats (COLLADA, OBJ, etc.).
+  - Relax some of the restrictions on the imported models.

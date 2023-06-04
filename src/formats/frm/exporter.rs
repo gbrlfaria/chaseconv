@@ -2,8 +2,10 @@ use anyhow::Result;
 use glam::Vec3A;
 
 use crate::{
-    conversion::{Animation, Asset, Exporter, Scene},
-    format::frm::internal::Frm,
+    asset::Asset,
+    conversion::Exporter,
+    formats::frm::internal::Frm,
+    scene::{Animation, Scene},
 };
 
 use super::internal::{Frame, FrmVersion};

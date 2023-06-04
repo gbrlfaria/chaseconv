@@ -2,7 +2,7 @@ pub use {exporter::GltfExporter, importer::GltfImporter};
 
 use glam::{Mat4, Vec4};
 
-use crate::conversion::Scene;
+use crate::scene::Scene;
 
 mod exporter;
 mod importer;

@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
 use glam::Vec3A;
 
-use crate::conversion::{Asset, Importer, Joint, Mesh, Scene, Vertex};
+use crate::{
+    asset::Asset,
+    conversion::Importer,
+    scene::{Joint, Mesh, Scene, Vertex},
+};
 
 use super::internal::{AngleBone, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX};
 
@@ -83,7 +87,9 @@ fn convert_vertices(
         .map(|vertex| {
             let joint = vertex.bone_index as usize - num_position_bones;
             Vertex {
-                position: Vec3A::from(vertex.position) + scene.joint_world_translation(joint),
+                position: scene
+                    .joint_world_transform(joint)
+                    .transform_point3a(Vec3A::from(vertex.position)),
                 normal: Vec3A::from(vertex.normal),
                 uv: vertex.uv.into(),
                 joint: if joint != INVALID_BONE_INDEX as usize {
@@ -100,7 +106,7 @@ fn convert_vertices(
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use glam::{Vec2, Vec3A};
+    use glam::{Quat, Vec2, Vec3A};
 
     use super::*;
 
@@ -142,6 +148,7 @@ mod tests {
             meshes: Vec::new(),
             skeleton: vec![Joint {
                 translation: Vec3A::new(1., 1., 1.),
+                rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
             }],
@@ -220,21 +227,25 @@ mod tests {
         let expected = vec![
             Joint {
                 translation: Vec3A::new(1., 1., 1.),
+                rotation: Quat::default(),
                 parent: None,
                 children: vec![2],
             },
             Joint {
                 translation: Vec3A::new(1., 1., 1.),
+                rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
             },
             Joint {
                 translation: Vec3A::new(2., 2., 2.),
+                rotation: Quat::default(),
                 parent: Some(0),
                 children: vec![3],
             },
             Joint {
                 translation: Vec3A::new(3., 3., 3.),
+                rotation: Quat::default(),
                 parent: Some(2),
                 children: Vec::new(),
             },
