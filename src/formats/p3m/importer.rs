@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use glam::{EulerRot, Quat, Vec3A};
+use glam::Vec3A;
 
 use crate::{
     asset::Asset,
@@ -42,15 +42,6 @@ fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) ->
 
     // Update joint children by squashing position and angle bones.
     for (joint, a_bone) in joints.iter_mut().zip(angle_bones) {
-        // In practice, this is unnecessary as standard P3M angle bones have zero rotation
-        // and are unused. This is added for compatibility with non-standard P3M files.
-        joint.rotation = Quat::from_euler(
-            EulerRot::XYZ,
-            a_bone.position[0],
-            a_bone.position[1],
-            a_bone.position[2],
-        );
-
         let children = a_bone
             .children
             .iter()
@@ -115,7 +106,7 @@ fn convert_vertices(
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use glam::{Vec2, Vec3A};
+    use glam::{Quat, Vec2, Vec3A};
 
     use super::*;
 
