@@ -46,7 +46,7 @@ fn convert_frames(animation: &Animation) -> Vec<Frame> {
                 option: 0,
                 plus_x: keyframe.translation.x - prev_root_trans.x,
                 pos_y: keyframe.translation.y,
-                pos_z: keyframe.translation.z - prev_root_trans.z,
+                pos_z: keyframe.translation.z,
                 bones: keyframe
                     .transforms
                     .iter()
