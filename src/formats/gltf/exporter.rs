@@ -139,7 +139,7 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
             extensions: None,
             matrix: None,
             mesh: None,
-            rotation: None,
+            rotation: Some(json::scene::UnitQuaternion(joint.rotation.to_array())),
             scale: None,
             skin: None,
             weights: None,
@@ -854,7 +854,10 @@ fn insert_rotations_bytes(
 
 /// Adds zeros to the buffer until it is n-byte aligned.
 fn align_to(buffer: &mut Vec<u8>, n: usize) {
-    buffer.append(&mut vec![0; buffer.len() % n]);
+    let remainder = buffer.len() % n;
+    if remainder != 0 {
+        buffer.append(&mut vec![0; n - remainder]);
+    }
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 pub use {exporter::GltfExporter, importer::GltfImporter};
 
-use glam::{Mat4, Vec4};
+use glam::{Mat4, Quat, Vec4};
 
 use crate::scene::Scene;
 
@@ -26,6 +26,14 @@ fn transform(scene: &Scene) -> Scene {
 
     for joint in &mut scene.skeleton {
         joint.translation = matrix.transform_point3a(joint.translation);
+        // Conjugate rotation for Z-flip handedness change: M * R * M^(-1).
+        // For Z-negate matrix, this negates the x and y quaternion components.
+        joint.rotation = Quat::from_xyzw(
+            -joint.rotation.x,
+            -joint.rotation.y,
+            joint.rotation.z,
+            joint.rotation.w,
+        );
     }
 
     for animation in &mut scene.animations {
