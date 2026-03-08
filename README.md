@@ -1,6 +1,6 @@
 # Chaseconv
 
-[![](https://img.shields.io/badge/version-v0.2.0-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
+[![](https://img.shields.io/badge/version-v0.2.1-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/downloads/gabriel-dev/chaseconv/latest/total)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/license/gabriel-dev/chaseconv)](./LICENSE)
 
@@ -36,7 +36,7 @@ There are limitations, however:
 ### Importing
 
 - All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be named "root".
-- Bones should have no rotation in the bind pose. When importing GLTF files into Blender, make sure to set the bone direction configuration to "Blender".
+- Bone rotations in the bind pose are supported. Models exported from tools like Blender (which may add bone orientation rotations) can be converted back without issues.
 - Regarding animations, the bones of the model only support rotations, whereas the root bone only supports translations.
 - Only the first skeleton/skin in each GLTF file will be taken into account.
 

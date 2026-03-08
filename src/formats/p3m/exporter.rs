@@ -72,25 +72,38 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
     }
 
     // Aggregate root position bones and adjust position bone child indices.
-    let mut count = 0;
+    // Collect indices of extra root joints (all roots after the first one).
+    let mut extra_roots: Vec<usize> = Vec::new();
+    let mut first_root = true;
     for (index, joint) in joints.iter().take(MAX_NUM_BONES).enumerate() {
         if joint.parent.is_none() {
-            if count > 0 {
-                position_bones
-                    .get_mut(0)
-                    .unwrap()
-                    .children
-                    .push(index as u8);
-                position_bones.remove(index);
-                for ang_bone in &mut angle_bones {
-                    for child in &mut ang_bone.children {
-                        if *child > index as u8 {
-                            *child -= 1;
-                        }
-                    }
+            if first_root {
+                first_root = false;
+            } else {
+                extra_roots.push(index);
+            }
+        }
+    }
+    // Remove extra roots in reverse order so indices remain valid.
+    for &index in extra_roots.iter().rev() {
+        position_bones
+            .get_mut(0)
+            .unwrap()
+            .children
+            .push(index as u8);
+        position_bones.remove(index);
+        for ang_bone in &mut angle_bones {
+            for child in &mut ang_bone.children {
+                if *child > index as u8 {
+                    *child -= 1;
                 }
             }
-            count += 1;
+        }
+        // Also adjust the children list in position_bones[0]
+        for child in &mut position_bones.get_mut(0).unwrap().children {
+            if *child > index as u8 {
+                *child -= 1;
+            }
         }
     }
 
