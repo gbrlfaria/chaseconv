@@ -379,7 +379,7 @@ impl Default for MeshVertex {
 }
 
 mod util {
-    use std::io::{Cursor, Error, ErrorKind, Read, Result, Write};
+    use std::io::{Cursor, Error, Read, Result, Write};
 
     use byteorder::WriteBytesExt;
 
@@ -395,7 +395,7 @@ mod util {
 
         match String::from_utf8(bytes) {
             Ok(string) => Ok(string),
-            Err(error) => Err(Error::new(ErrorKind::Other, error.to_string())),
+            Err(error) => Err(Error::other(error.to_string())),
         }
     }
 
@@ -403,7 +403,7 @@ mod util {
     /// length allowed, the remaining bytes are filled with zero. If it's longer, it's truncated.
     pub fn write_string(bytes: &mut Vec<u8>, string: &str, max_len: usize) -> Result<()> {
         let len = usize::min(string.len(), max_len);
-        bytes.write_all(string[0..len].as_bytes())?;
+        bytes.write_all(&string.as_bytes()[0..len])?;
 
         // Set the remaining bytes to zero, if any.
         for _ in 0..(max_len - len) {

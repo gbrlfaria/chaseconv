@@ -3,15 +3,67 @@ use std::io::prelude::*;
 
 use chaseconv::conversion;
 
-// TODO: add CLI.
 fn main() {
-    let files: Vec<_> = std::env::args().skip(1).collect();
+    let args: Vec<_> = std::env::args().skip(1).collect();
 
-    if !files.is_empty() {
-        eprintln!("Trying to convert {} file(s)...\n", files.len());
+    // Check for CLI flags: --format <glb|gc> --output <dir> [files...]
+    let mut format: Option<String> = None;
+    let mut output: Option<String> = None;
+    let mut files: Vec<String> = Vec::new();
+    let mut batch = false;
 
-        let converters = conversion::converters();
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--format" | "-f" => {
+                i += 1;
+                if i < args.len() {
+                    format = Some(args[i].clone());
+                    batch = true;
+                }
+            }
+            "--output" | "-o" => {
+                i += 1;
+                if i < args.len() {
+                    output = Some(args[i].clone());
+                }
+            }
+            _ => {
+                files.push(args[i].clone());
+            }
+        }
+        i += 1;
+    }
 
+    if files.is_empty() {
+        eprintln!("There were no input files. No files were converted.");
+        if !batch {
+            pause();
+        }
+        return;
+    }
+
+    eprintln!("Trying to convert {} file(s)...\n", files.len());
+
+    let converters = conversion::converters();
+
+    if batch {
+        // CLI mode.
+        let format_str = format.unwrap_or_else(|| "glb".to_string());
+        let option = match format_str.to_lowercase().as_str() {
+            "glb" | "gltf" => 0,
+            "gc" | "p3m" | "frm" => 1,
+            _ => {
+                eprintln!("Unknown format '{}'. Use 'glb' or 'gc'.", format_str);
+                return;
+            }
+        };
+
+        let out_path = output.unwrap_or_else(|| "output/".to_string());
+        let converter = &converters[option];
+        converter.convert(&files, &out_path);
+    } else {
+        // Interactive mode.
         let items: Vec<_> = converters.iter().map(|converter| converter.name).collect();
         let option = dialoguer::Select::new()
             .with_prompt("Select the format you want to convert the input files to")
@@ -21,31 +73,29 @@ fn main() {
             .expect("Failed to select converter option");
         let converter = &converters[option];
 
-        let out_path = dialoguer::Input::new()
-            .with_prompt("Select the output directory")
-            .default(String::from("output/"))
-            .show_default(true)
-            .interact()
-            .expect("Failed to define output path");
+        let out_path: String = match output {
+            Some(p) => p,
+            None => dialoguer::Input::new()
+                .with_prompt("Select the output directory")
+                .default(String::from("output/"))
+                .show_default(true)
+                .interact()
+                .expect("Failed to define output path"),
+        };
 
         eprintln!();
         converter.convert(&files, &out_path);
-    } else {
-        eprintln!("There were no input files. No files were converted.")
-    }
 
-    pause();
+        pause();
+    }
 }
 
 fn pause() {
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
 
-    // We want the cursor to stay at the end of the line,
-    // so we print without a newline and flush manually.
     write!(stdout, "Press any key to continue...").unwrap();
     stdout.flush().unwrap();
 
-    // Read a single byte and discard
     let _ = stdin.read(&mut [0u8]).unwrap();
 }

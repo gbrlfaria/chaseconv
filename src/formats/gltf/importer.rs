@@ -22,7 +22,7 @@ impl Importer for GltfImporter {
         let joint_map = make_joint_map(&gltf);
         let skeleton_root_index = get_skeleton_root_index(&gltf);
 
-        let joints = convert_joints(&gltf, &joint_map);
+        let joints = convert_joints(&gltf, &buffers, &joint_map);
         let mut meshes = convert_meshes(&gltf, &buffers, &joint_map, &skin_map);
         let mut animations = convert_animations(&gltf, &buffers, &joint_map, skeleton_root_index);
 
@@ -83,7 +83,11 @@ fn get_skeleton_root_index(gltf: &gltf::Gltf) -> Option<usize> {
     })
 }
 
-fn convert_joints(gltf: &gltf::Gltf, joint_map: &HashMap<usize, usize>) -> Vec<Joint> {
+fn convert_joints(
+    gltf: &gltf::Gltf,
+    buffers: &[Vec<u8>],
+    joint_map: &HashMap<usize, usize>,
+) -> Vec<Joint> {
     // Compute a mapping between child nodes and their parents. This is necessary because
     // the intermediary joint representation keeps track of the each joint's parent.
     let mut child_parent_map = HashMap::new();
@@ -93,18 +97,41 @@ fn convert_joints(gltf: &gltf::Gltf, joint_map: &HashMap<usize, usize>) -> Vec<J
         }
     }
 
+    // Derive joint world transforms from inverse bind matrices when available.
+    // This is more robust than using node TRS, because tools like Blender may
+    // change the node TRS decomposition (e.g. adding bone orientation rotations)
+    // while keeping the IBMs consistent. Using IBMs ensures we recover the true
+    // bind-pose world transform regardless of how the node TRS is decomposed.
+    let ibm_world_transforms = read_ibm_world_transforms(gltf, buffers, joint_map);
+
     let max_index = joint_map.values().max().copied().unwrap_or_default();
     let mut joints = vec![Joint::default(); max_index + 1];
     for node in gltf.nodes() {
         if let Some(&joint_index) = joint_map.get(&node.index()) {
-            let (translation, rotation, _scale) = node.transform().decomposed();
+            let parent = child_parent_map
+                .get(&node.index())
+                .and_then(|index| joint_map.get(index))
+                .copied();
+
+            let (translation, rotation) =
+                if let Some(&world) = ibm_world_transforms.get(&joint_index) {
+                    let parent_world = parent
+                        .and_then(|pi| ibm_world_transforms.get(&pi))
+                        .copied()
+                        .unwrap_or(Mat4::IDENTITY);
+                    let relative = parent_world.inverse() * world;
+                    let (_scale, rotation, translation) = relative.to_scale_rotation_translation();
+                    (Vec3A::from(translation), rotation)
+                } else {
+                    // Fallback to node TRS when IBMs are not available.
+                    let (translation, rotation, _scale) = node.transform().decomposed();
+                    (Vec3A::from(translation), Quat::from_array(rotation))
+                };
+
             *joints.get_mut(joint_index).unwrap() = Joint {
-                translation: translation.into(),
-                rotation: Quat::from_array(rotation),
-                parent: child_parent_map
-                    .get(&node.index())
-                    .and_then(|index| joint_map.get(index))
-                    .copied(),
+                translation,
+                rotation,
+                parent,
                 children: node
                     .children()
                     .filter_map(|child| joint_map.get(&child.index()).copied())
@@ -114,6 +141,30 @@ fn convert_joints(gltf: &gltf::Gltf, joint_map: &HashMap<usize, usize>) -> Vec<J
     }
 
     joints
+}
+
+/// Reads inverse bind matrices from the first skin and returns the corresponding
+/// joint world transforms (i.e. `inverse(IBM)` for each joint).
+fn read_ibm_world_transforms(
+    gltf: &gltf::Gltf,
+    buffers: &[Vec<u8>],
+    joint_map: &HashMap<usize, usize>,
+) -> HashMap<usize, Mat4> {
+    let mut result = HashMap::new();
+
+    if let Some(skin) = gltf.skins().next() {
+        let reader = skin.reader(|buffer| Some(&buffers[buffer.index()]));
+        if let Some(ibms) = reader.read_inverse_bind_matrices() {
+            for (ibm, joint_node) in ibms.zip(skin.joints()) {
+                if let Some(&joint_index) = joint_map.get(&joint_node.index()) {
+                    let world_transform = Mat4::from_cols_array_2d(&ibm).inverse();
+                    result.insert(joint_index, world_transform);
+                }
+            }
+        }
+    }
+
+    result
 }
 
 /// The animation input time should already be sampled at 55 FPS. All channels should be
