@@ -120,8 +120,7 @@ fn convert_joints(
                         .copied()
                         .unwrap_or(Mat4::IDENTITY);
                     let relative = parent_world.inverse() * world;
-                    let (_scale, rotation, translation) =
-                        relative.to_scale_rotation_translation();
+                    let (_scale, rotation, translation) = relative.to_scale_rotation_translation();
                     (Vec3A::from(translation), rotation)
                 } else {
                     // Fallback to node TRS when IBMs are not available.
