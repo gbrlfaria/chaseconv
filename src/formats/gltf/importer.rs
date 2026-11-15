@@ -22,9 +22,14 @@ impl Importer for GltfImporter {
         let joint_map = make_joint_map(&gltf);
         let skeleton_root_index = get_skeleton_root_index(&gltf);
 
-        let joints = convert_joints(&gltf, &buffers, &joint_map);
+        // The joint index comes from the "bone_XX" name. The names can skip numbers, thus
+        // the highest index sets the number of joints.
+        let num_joints = joint_map.values().max().map_or(0, |&max| max + 1);
+
+        let joints = convert_joints(&gltf, &buffers, &joint_map, num_joints);
         let mut meshes = convert_meshes(&gltf, &buffers, &joint_map, &skin_map);
-        let mut animations = convert_animations(&gltf, &buffers, &joint_map, skeleton_root_index);
+        let mut animations =
+            convert_animations(&gltf, &buffers, &joint_map, num_joints, skeleton_root_index);
 
         scene.skeleton = joints;
         scene.meshes.append(&mut meshes);
@@ -87,6 +92,7 @@ fn convert_joints(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
     joint_map: &HashMap<usize, usize>,
+    num_joints: usize,
 ) -> Vec<Joint> {
     // Compute a mapping between child nodes and their parents. This is necessary because
     // the intermediary joint representation keeps track of the each joint's parent.
@@ -104,8 +110,7 @@ fn convert_joints(
     // bind-pose world transform regardless of how the node TRS is decomposed.
     let ibm_world_transforms = read_ibm_world_transforms(gltf, buffers, joint_map);
 
-    let max_index = joint_map.values().max().copied().unwrap_or_default();
-    let mut joints = vec![Joint::default(); max_index + 1];
+    let mut joints = vec![Joint::default(); num_joints];
     for node in gltf.nodes() {
         if let Some(&joint_index) = joint_map.get(&node.index()) {
             let parent = child_parent_map
@@ -173,15 +178,16 @@ fn convert_animations(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
     joint_map: &HashMap<usize, usize>,
+    num_joints: usize,
     skeleton_root_index: Option<usize>,
 ) -> Vec<Animation> {
     let mut result = Vec::new();
     for animation in gltf.animations() {
         let mut root_translations: Vec<Vec3> = Vec::new();
         // Dimensions: [joint, frame, value]
-        let mut translations: Vec<Vec<Vec3>> = vec![Vec::new(); joint_map.len()];
-        let mut rotations: Vec<Vec<Quat>> = vec![Vec::new(); joint_map.len()];
-        let mut scales: Vec<Vec<Vec3>> = vec![Vec::new(); joint_map.len()];
+        let mut translations: Vec<Vec<Vec3>> = vec![Vec::new(); num_joints];
+        let mut rotations: Vec<Vec<Quat>> = vec![Vec::new(); num_joints];
+        let mut scales: Vec<Vec<Vec3>> = vec![Vec::new(); num_joints];
 
         let mut num_frames = 0;
         for channel in animation.channels() {
@@ -245,8 +251,7 @@ fn convert_animations(
         let frames = (0..num_frames)
             .map(|i| {
                 let root_translation = root_translations.get(i).copied().unwrap_or_default();
-                let num_transforms = joint_map.len();
-                let transforms: Vec<Mat4> = (0..num_transforms)
+                let transforms: Vec<Mat4> = (0..num_joints)
                     .map(|j| {
                         let _translation = translations
                             .get(j)
@@ -434,4 +439,68 @@ impl<'a> DataUri<'a> {
 fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
     let mut iter = input.splitn(2, delimiter);
     Some((iter.next()?, iter.next()?))
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::{conversion::Exporter, formats::GltfExporter};
+
+    use super::*;
+
+    #[test]
+    fn bone_names_with_gap() {
+        let chain = |parent, children| Joint {
+            parent,
+            children,
+            ..Default::default()
+        };
+        let scene = Scene {
+            skeleton: vec![
+                chain(None, vec![1]),
+                chain(Some(0), vec![2]),
+                chain(Some(1), vec![]),
+            ],
+            animations: vec![Animation {
+                name: String::from("wait"),
+                frames: vec![
+                    Keyframe {
+                        translation: Vec3A::ZERO,
+                        transforms: vec![Mat4::IDENTITY; 3],
+                    };
+                    2
+                ],
+            }],
+            ..Default::default()
+        };
+        let bytes = GltfExporter::default()
+            .export(&scene)
+            .unwrap()
+            .remove(0)
+            .bytes;
+
+        // Rename "bone_1". The names that stay are "bone_0" and "bone_2".
+        let glb = gltf::Glb::from_slice(&bytes).unwrap();
+        let mut root: gltf::json::Root = gltf::json::deserialize::from_slice(&glb.json).unwrap();
+        root.nodes[1].name = Some(String::from("Bone.001"));
+        let json = gltf::json::serialize::to_string(&root).unwrap();
+        let bytes = gltf::Glb {
+            header: glb.header,
+            json: json.into_bytes().into(),
+            bin: glb.bin.clone(),
+        }
+        .to_vec()
+        .unwrap();
+
+        let mut actual = Scene::default();
+        GltfImporter::default()
+            .import(&Asset::new(bytes, "model.glb"), &mut actual)
+            .unwrap();
+
+        assert_eq!(3, actual.skeleton.len());
+        for frame in &actual.animations[0].frames {
+            assert_eq!(3, frame.transforms.len());
+        }
+    }
 }
