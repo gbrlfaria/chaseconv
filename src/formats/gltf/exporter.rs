@@ -246,7 +246,7 @@ fn insert_meshes(
             json::Index::new(uv_accessor as u32),
         );
         if !skeleton.is_empty() {
-            let joints_accessor = insert_joints_bytes(root, buffer, mesh)?;
+            let joints_accessor = insert_joints_bytes(root, buffer, mesh, skeleton)?;
             let weights_accessor = insert_weights_bytes(root, buffer, mesh)?;
             attributes.insert(
                 Checked::Valid(Semantic::Joints(0)),
@@ -528,7 +528,12 @@ fn insert_uv_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> 
     Ok(root.accessors.len() - 1)
 }
 
-fn insert_joints_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh) -> Result<usize> {
+fn insert_joints_bytes(
+    root: &mut json::Root,
+    buffer: &mut Vec<u8>,
+    mesh: &Mesh,
+    skeleton: &[Joint],
+) -> Result<usize> {
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
@@ -559,7 +564,10 @@ fn insert_joints_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh)
     };
 
     for vertex in &mesh.vertices {
-        buffer.extend_from_slice(&[vertex.joint.unwrap_or_default() as u8, 0, 0, 0]);
+        // A vertex without a joint uses the skeleton root. The root is the last joint
+        // of the skin and has an identity inverse bind matrix.
+        let joint = vertex.joint.unwrap_or(skeleton.len());
+        buffer.extend_from_slice(&[joint as u8, 0, 0, 0]);
     }
 
     root.accessors.push(accessor);
@@ -598,12 +606,9 @@ fn insert_weights_bytes(root: &mut json::Root, buffer: &mut Vec<u8>, mesh: &Mesh
         extras: Default::default(),
     };
 
-    for vertex in &mesh.vertices {
-        let weight = match vertex.joint {
-            Some(_) => 1.,
-            None => 0.,
-        };
-        for coordinate in [weight, 0., 0., 0.] {
+    // Each vertex has one joint with full influence (see `insert_joints_bytes`).
+    for _ in &mesh.vertices {
+        for coordinate in [1., 0., 0., 0.] {
             buffer.write_f32::<LE>(coordinate)?;
         }
     }
@@ -971,5 +976,27 @@ mod tests {
             .iter()
             .find(|node| node.name.as_deref() == Some("root"));
         assert!(root_node.unwrap().children.is_none());
+    }
+
+    #[test]
+    fn vertex_without_joint() {
+        let mut mesh = triangle(Some(0));
+        mesh.vertices[1].joint = None;
+        let scene = Scene {
+            meshes: vec![mesh],
+            skeleton: vec![Joint::default()],
+            ..Default::default()
+        };
+
+        let gltf = export(&scene);
+
+        let blob = gltf.blob.as_deref().unwrap();
+        let primitive = gltf.meshes().next().unwrap().primitives().next().unwrap();
+        let reader = primitive.reader(|_| Some(blob));
+        let joints: Vec<_> = reader.read_joints(0).unwrap().into_u16().collect();
+        let weights: Vec<_> = reader.read_weights(0).unwrap().into_f32().collect();
+        // Joint 1 is the skeleton root, the last joint of the skin.
+        assert_eq!(vec![[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0]], joints);
+        assert_eq!(vec![[1., 0., 0., 0.]; 3], weights);
     }
 }
