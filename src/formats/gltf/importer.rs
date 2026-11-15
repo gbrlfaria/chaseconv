@@ -307,6 +307,8 @@ fn convert_meshes(
     let mut meshes = Vec::new();
     for mesh in gltf.meshes() {
         let name = mesh.name().unwrap_or_default();
+        // Without the prefix of the exporter, names do not change after a round trip.
+        let name = name.strip_prefix(super::MESH_NAME_PREFIX).unwrap_or(name);
         for primitive in mesh.primitives() {
             let mut mesh = Mesh {
                 name: name.into(),
@@ -529,6 +531,37 @@ mod tests {
             .unwrap();
 
         assert!(actual.animations[0].frames[0].transforms[0].abs_diff_eq(transform, 1e-5));
+    }
+
+    #[test]
+    fn mesh_name() {
+        let vertex = Vertex {
+            position: Vec3A::ZERO,
+            normal: Vec3A::Y,
+            uv: Vec2::ZERO,
+            joint: None,
+        };
+        let scene = Scene {
+            meshes: vec![Mesh {
+                name: String::from("model"),
+                vertices: vec![vertex; 3],
+                indices: vec![0, 1, 2],
+            }],
+            skeleton: vec![Joint::default()],
+            ..Default::default()
+        };
+        let bytes = GltfExporter::default()
+            .export(&scene)
+            .unwrap()
+            .remove(0)
+            .bytes;
+
+        let mut actual = Scene::default();
+        GltfImporter::default()
+            .import(&Asset::new(bytes, "model.glb"), &mut actual)
+            .unwrap();
+
+        assert_eq!("model", actual.meshes[0].name);
     }
 
     #[test]
