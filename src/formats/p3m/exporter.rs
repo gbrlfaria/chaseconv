@@ -45,67 +45,43 @@ impl Exporter for P3mExporter {
     }
 }
 
+/// Converts the joints into position bones and angle bones. Angle bone `i` is joint `i`.
+/// Position bone 0 holds the roots, and each other joint has its own position bone.
 fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
-    let mut position_bones = Vec::new();
-    let mut angle_bones = Vec::new();
+    let joints = &joints[..joints.len().min(MAX_NUM_BONES)];
 
-    for (index, joint) in joints.iter().take(MAX_NUM_BONES).enumerate() {
-        position_bones.push(PositionBone {
-            position: joint.translation.into(),
-            children: vec![index as u8],
-        });
+    let roots: Vec<_> = (0..joints.len())
+        .filter(|&index| joints[index].parent.is_none())
+        .collect();
+    let mut position_bones = vec![PositionBone {
+        // All roots share position bone 0, thus they get the translation of the first root.
+        position: roots
+            .first()
+            .map_or([0.; 3], |&root| joints[root].translation.into()),
+        children: roots.iter().map(|&root| root as u8).collect(),
+    }];
+    let mut position_bone_of = vec![None; joints.len()];
+    for (index, joint) in joints.iter().enumerate() {
+        if joint.parent.is_some() {
+            position_bone_of[index] = Some(position_bones.len() as u8);
+            position_bones.push(PositionBone {
+                position: joint.translation.into(),
+                children: vec![index as u8],
+            });
+        }
+    }
 
-        angle_bones.push(AngleBone {
+    let angle_bones = joints
+        .iter()
+        .map(|joint| AngleBone {
             children: joint
                 .children
                 .iter()
-                .filter_map(|&index| {
-                    if index < u8::MAX as usize {
-                        Some(index as u8)
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|&child| position_bone_of.get(child).copied().flatten())
                 .collect(),
             ..Default::default()
-        });
-    }
-
-    // Aggregate root position bones and adjust position bone child indices.
-    // Collect indices of extra root joints (all roots after the first one).
-    let mut extra_roots: Vec<usize> = Vec::new();
-    let mut first_root = true;
-    for (index, joint) in joints.iter().take(MAX_NUM_BONES).enumerate() {
-        if joint.parent.is_none() {
-            if first_root {
-                first_root = false;
-            } else {
-                extra_roots.push(index);
-            }
-        }
-    }
-    // Remove extra roots in reverse order so indices remain valid.
-    for &index in extra_roots.iter().rev() {
-        position_bones
-            .get_mut(0)
-            .unwrap()
-            .children
-            .push(index as u8);
-        position_bones.remove(index);
-        for ang_bone in &mut angle_bones {
-            for child in &mut ang_bone.children {
-                if *child > index as u8 {
-                    *child -= 1;
-                }
-            }
-        }
-        // Also adjust the children list in position_bones[0]
-        for child in &mut position_bones.get_mut(0).unwrap().children {
-            if *child > index as u8 {
-                *child -= 1;
-            }
-        }
-    }
+        })
+        .collect();
 
     (position_bones, angle_bones)
 }
@@ -153,4 +129,45 @@ fn convert_faces(mesh: &Mesh) -> Vec<[u16; 3]> {
         .chunks(3)
         .map(|face| [face[0] as u16, face[1] as u16, face[2] as u16])
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn joints_with_three_roots() {
+        // Joints 0, 2 and 4 are roots. Each root has one child.
+        let joints: Vec<_> = [
+            (None, vec![1]),
+            (Some(0), vec![]),
+            (None, vec![3]),
+            (Some(2), vec![]),
+            (None, vec![5]),
+            (Some(4), vec![]),
+        ]
+        .into_iter()
+        .map(|(parent, children)| Joint {
+            parent,
+            children,
+            ..Default::default()
+        })
+        .collect();
+
+        let (position_bones, angle_bones) = convert_joints(&joints);
+
+        // Position bone 0 holds all roots. Each child joint has its own position bone.
+        let position_children: Vec<_> = position_bones.iter().map(|b| &b.children).collect();
+        assert_eq!(
+            vec![&vec![0, 2, 4], &vec![1], &vec![3], &vec![5]],
+            position_children
+        );
+        let angle_children: Vec<_> = angle_bones.iter().map(|b| &b.children).collect();
+        assert_eq!(
+            vec![&vec![1], &vec![], &vec![2], &vec![], &vec![3], &vec![]],
+            angle_children
+        );
+    }
 }
