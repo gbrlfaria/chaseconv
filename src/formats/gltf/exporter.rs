@@ -30,7 +30,7 @@ impl Exporter for GltfExporter {
         let scene = super::transform(scene);
 
         let skeleton_index = insert_scene(&mut root, &scene.skeleton, &scene.meshes);
-        insert_meshes(&mut root, &mut buffer, &scene.meshes)?;
+        insert_meshes(&mut root, &mut buffer, &scene.meshes, &scene.skeleton)?;
         insert_skins(&mut root, &mut buffer, &scene, skeleton_index)?;
         insert_animations(
             &mut root,
@@ -93,8 +93,10 @@ fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> u
 
     let skeleton_node = push_skeleton_nodes(&mut root.nodes, skeleton);
     nodes.push(skeleton_node);
+    // `insert_skins` writes a skin only if the skeleton has joints.
+    let skinned = !skeleton.is_empty();
     for (index, mesh) in meshes.iter().enumerate() {
-        let mesh_node = push_mesh_node(&mut root.nodes, mesh, index as u32);
+        let mesh_node = push_mesh_node(&mut root.nodes, mesh, index as u32, skinned);
         nodes.push(mesh_node);
     }
 
@@ -149,7 +151,12 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
 
     nodes.push(json::Node {
         name: Some(String::from("root")),
-        children: Some(roots.iter().map(|&root| json::Index::new(root)).collect()),
+        // glTF does not permit an empty `children` array.
+        children: if roots.is_empty() {
+            None
+        } else {
+            Some(roots.iter().map(|&root| json::Index::new(root)).collect())
+        },
         translation: None,
         camera: None,
         extensions: None,
@@ -165,11 +172,11 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
     nodes.len() - 1
 }
 
-fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32) -> usize {
+fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32, skinned: bool) -> usize {
     nodes.push(json::Node {
         name: Some(format!("mesh_{}", mesh.name)),
         mesh: Some(json::Index::new(index)),
-        skin: Some(json::Index::new(0)),
+        skin: skinned.then(|| json::Index::new(0)),
         children: None,
         translation: None,
         camera: None,
@@ -213,13 +220,16 @@ fn insert_skins(
     Ok(())
 }
 
-fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) -> Result<()> {
+fn insert_meshes(
+    root: &mut json::Root,
+    buffer: &mut Vec<u8>,
+    meshes: &[Mesh],
+    skeleton: &[Joint],
+) -> Result<()> {
     for mesh in meshes {
         let positions_accessor = insert_positions_bytes(root, buffer, mesh)?;
         let normals_accessor = insert_normals_bytes(root, buffer, mesh)?;
         let uv_accessor = insert_uv_bytes(root, buffer, mesh)?;
-        let joints_accessor = insert_joints_bytes(root, buffer, mesh)?;
-        let weights_accessor = insert_weights_bytes(root, buffer, mesh)?;
         let indices_accessor = insert_indices_bytes(root, buffer, mesh)?;
 
         let mut attributes = HashMap::new();
@@ -235,14 +245,18 @@ fn insert_meshes(root: &mut json::Root, buffer: &mut Vec<u8>, meshes: &[Mesh]) -
             Checked::Valid(Semantic::TexCoords(0)),
             json::Index::new(uv_accessor as u32),
         );
-        attributes.insert(
-            Checked::Valid(Semantic::Joints(0)),
-            json::Index::new(joints_accessor as u32),
-        );
-        attributes.insert(
-            Checked::Valid(Semantic::Weights(0)),
-            json::Index::new(weights_accessor as u32),
-        );
+        if !skeleton.is_empty() {
+            let joints_accessor = insert_joints_bytes(root, buffer, mesh)?;
+            let weights_accessor = insert_weights_bytes(root, buffer, mesh)?;
+            attributes.insert(
+                Checked::Valid(Semantic::Joints(0)),
+                json::Index::new(joints_accessor as u32),
+            );
+            attributes.insert(
+                Checked::Valid(Semantic::Weights(0)),
+                json::Index::new(weights_accessor as u32),
+            );
+        }
 
         root.meshes.push(json::Mesh {
             name: Some(format!("mesh_{}", mesh.name)),
@@ -862,8 +876,10 @@ fn align_to(buffer: &mut Vec<u8>, n: usize) {
 
 #[cfg(test)]
 mod tests {
-    use glam::{Quat, Vec3A};
+    use glam::{Quat, Vec2, Vec3A};
     use pretty_assertions::assert_eq;
+
+    use crate::scene::Vertex;
 
     use super::*;
 
@@ -909,5 +925,51 @@ mod tests {
         assert_eq!(3, skeleton_node);
         assert_eq!(Some(String::from("mesh_goblin")), root.nodes[4].name);
         assert_eq!(Some([2., 2., 2.]), root.nodes[1].translation);
+    }
+
+    fn triangle(joint: Option<usize>) -> Mesh {
+        let vertex = |x| Vertex {
+            position: Vec3A::new(x, 0., 0.),
+            normal: Vec3A::Y,
+            uv: Vec2::ZERO,
+            joint,
+        };
+        Mesh {
+            name: String::from("triangle"),
+            vertices: vec![vertex(0.), vertex(1.), vertex(2.)],
+            indices: vec![0, 1, 2],
+        }
+    }
+
+    /// Exports the scene and parses the result, which also validates it.
+    fn export(scene: &Scene) -> gltf::Gltf {
+        let bytes = GltfExporter::default()
+            .export(scene)
+            .unwrap()
+            .remove(0)
+            .bytes;
+        gltf::Gltf::from_slice(&bytes).unwrap()
+    }
+
+    #[test]
+    fn mesh_without_skeleton() {
+        let scene = Scene {
+            meshes: vec![triangle(None)],
+            ..Default::default()
+        };
+
+        let gltf = export(&scene);
+
+        assert_eq!(0, gltf.skins().count());
+        let mesh_node = gltf.nodes().find(|node| node.mesh().is_some()).unwrap();
+        assert!(mesh_node.skin().is_none());
+        let primitive = mesh_node.mesh().unwrap().primitives().next().unwrap();
+        assert!(primitive.get(&gltf::Semantic::Joints(0)).is_none());
+        let json = gltf.document.clone().into_json();
+        let root_node = json
+            .nodes
+            .iter()
+            .find(|node| node.name.as_deref() == Some("root"));
+        assert!(root_node.unwrap().children.is_none());
     }
 }
