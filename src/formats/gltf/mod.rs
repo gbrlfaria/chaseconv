@@ -7,6 +7,9 @@ use crate::scene::Scene;
 mod exporter;
 mod importer;
 
+/// The name of the node that holds the detached joints.
+const DETACHED_NODE_NAME: &str = "detached";
+
 fn transform(scene: &Scene) -> Scene {
     let mut scene = scene.clone();
 

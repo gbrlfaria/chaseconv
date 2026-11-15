@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use anyhow::Result;
 use glam::{Mat4, Quat, Vec2, Vec3, Vec3A};
@@ -110,13 +113,22 @@ fn convert_joints(
     // bind-pose world transform regardless of how the node TRS is decomposed.
     let ibm_world_transforms = read_ibm_world_transforms(gltf, buffers, joint_map);
 
-    let mut joints = vec![Joint::default(); num_joints];
+    let detached_groups: HashSet<_> = gltf
+        .nodes()
+        .filter(|node| node.name() == Some(super::DETACHED_NODE_NAME))
+        .map(|node| node.index())
+        .collect();
+
+    // An index without a "bone_XX" node does not exist in the model, thus its joint is
+    // detached.
+    let mut joints = vec![Joint::detached(); num_joints];
     for node in gltf.nodes() {
         if let Some(&joint_index) = joint_map.get(&node.index()) {
-            let parent = child_parent_map
-                .get(&node.index())
-                .and_then(|index| joint_map.get(index))
-                .copied();
+            let parent_node = child_parent_map.get(&node.index());
+            if parent_node.is_some_and(|parent| detached_groups.contains(parent)) {
+                continue;
+            }
+            let parent = parent_node.and_then(|index| joint_map.get(index)).copied();
 
             let (translation, rotation) =
                 if let Some(&world) = ibm_world_transforms.get(&joint_index) {
@@ -141,6 +153,7 @@ fn convert_joints(
                     .children()
                     .filter_map(|child| joint_map.get(&child.index()).copied())
                     .collect(),
+                detached: false,
             };
         }
     }
@@ -448,6 +461,43 @@ mod tests {
     use crate::{conversion::Exporter, formats::GltfExporter};
 
     use super::*;
+
+    #[test]
+    fn detached_joints() {
+        let scene = Scene {
+            skeleton: vec![Joint::default(), Joint::detached()],
+            animations: vec![Animation {
+                name: String::from("wait"),
+                frames: vec![
+                    Keyframe {
+                        translation: Vec3A::ZERO,
+                        transforms: vec![Mat4::from_rotation_x(1.); 2],
+                    };
+                    2
+                ],
+            }],
+            ..Default::default()
+        };
+        let bytes = GltfExporter::default()
+            .export(&scene)
+            .unwrap()
+            .remove(0)
+            .bytes;
+
+        let gltf = gltf::Gltf::from_slice(&bytes).unwrap();
+        let group = gltf.nodes().find(|node| node.name() == Some("detached"));
+        let children: Vec<_> = group.unwrap().children().map(|node| node.name()).collect();
+        assert_eq!(vec![Some("bone_1")], children);
+
+        let mut actual = Scene::default();
+        GltfImporter::default()
+            .import(&Asset::new(bytes, "model.glb"), &mut actual)
+            .unwrap();
+        assert_eq!(scene.skeleton, actual.skeleton);
+        // The animation data of a detached joint stays, because other models can use it.
+        let transform = actual.animations[0].frames[1].transforms[1];
+        assert!(transform.abs_diff_eq(Mat4::from_rotation_x(1.), 1e-6));
+    }
 
     #[test]
     fn bone_names_with_gap() {

@@ -59,6 +59,7 @@ When round-tripping through Blender (GLTF → Blender → GLTF → P3M/FRM), use
 ### Importing (GLTF → GC)
 
 - All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be named "root".
+- The name "detached" is reserved for one node below "root". The bones below this node are not part of the skeleton, and bone animations do not move their vertices. To detach a bone, move it below this node. If a tool renames this node, its bones become normal root bones.
 - Bone rotations in the bind pose are supported. Models exported from tools like Blender (which may add bone orientation rotations) can be converted back without issues.
 - Regarding animations, the bones of the model only support rotations, whereas the root bone only supports translations.
 - Only the first skeleton/skin in each GLTF file will be taken into account.
