@@ -7,9 +7,7 @@ use crate::{
     scene::{Joint, Mesh, Scene},
 };
 
-use super::internal::{
-    AngleBone, MeshVertex, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX, MAX_NUM_BONES,
-};
+use super::internal::{AngleBone, MeshVertex, P3m, PositionBone, SkinVertex, MAX_NUM_BONES};
 
 #[derive(Default)]
 pub struct P3mExporter {}
@@ -18,9 +16,10 @@ impl Exporter for P3mExporter {
     fn export(&self, scene: &Scene) -> Result<Vec<Asset>> {
         let mut result = Vec::new();
         for mesh in &scene.meshes {
-            let (position_bones, angle_bones) = convert_joints(&scene.skeleton);
+            let unbound = mesh.vertices.iter().any(|vertex| vertex.joint.is_none());
+            let (position_bones, angle_bones, detached) = convert_joints(&scene.skeleton, unbound);
             let (skin_vertices, mesh_vertices) =
-                convert_vertices(mesh, position_bones.len(), scene);
+                convert_vertices(mesh, position_bones.len(), detached, scene);
             let faces = convert_faces(mesh);
 
             let p3m = P3m {
@@ -46,12 +45,20 @@ impl Exporter for P3mExporter {
 }
 
 /// Converts the joints into position bones and angle bones. Angle bone `i` is joint `i`.
-/// Position bone 0 holds the roots, and each other joint has its own position bone.
-fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
+/// Position bone 0 holds the roots, and each other attached joint has its own position
+/// bone. A detached joint has no position bone, thus the walk from position bone 0
+/// does not reach it.
+///
+/// Also returns a detached angle bone for vertices without a joint. If `unbound` is true
+/// and no joint is detached, the result gets one more angle bone for this purpose.
+fn convert_joints(
+    joints: &[Joint],
+    unbound: bool,
+) -> (Vec<PositionBone>, Vec<AngleBone>, Option<usize>) {
     let joints = &joints[..joints.len().min(MAX_NUM_BONES)];
 
     let roots: Vec<_> = (0..joints.len())
-        .filter(|&index| joints[index].parent.is_none())
+        .filter(|&index| joints[index].parent.is_none() && !joints[index].detached)
         .collect();
     let mut position_bones = vec![PositionBone {
         // All roots share position bone 0, thus they get the translation of the first root.
@@ -62,7 +69,7 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
     }];
     let mut position_bone_of = vec![None; joints.len()];
     for (index, joint) in joints.iter().enumerate() {
-        if joint.parent.is_some() {
+        if joint.parent.is_some() && !joint.detached {
             position_bone_of[index] = Some(position_bones.len() as u8);
             position_bones.push(PositionBone {
                 position: joint.translation.into(),
@@ -71,7 +78,7 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
         }
     }
 
-    let angle_bones = joints
+    let mut angle_bones: Vec<_> = joints
         .iter()
         .map(|joint| AngleBone {
             children: joint
@@ -82,13 +89,19 @@ fn convert_joints(joints: &[Joint]) -> (Vec<PositionBone>, Vec<AngleBone>) {
             ..Default::default()
         })
         .collect();
+    let mut detached = joints.iter().position(|joint| joint.detached);
+    if unbound && detached.is_none() {
+        detached = Some(angle_bones.len());
+        angle_bones.push(AngleBone::default());
+    }
 
-    (position_bones, angle_bones)
+    (position_bones, angle_bones, detached)
 }
 
 fn convert_vertices(
     mesh: &Mesh,
     num_position_bones: usize,
+    detached: Option<usize>,
     scene: &Scene,
 ) -> (Vec<SkinVertex>, Vec<MeshVertex>) {
     let mut skin_vertices = Vec::new();
@@ -105,10 +118,12 @@ fn convert_vertices(
                 .inverse()
                 .transform_point3a(vertex.position)
                 .into(),
-            bone_index: match vertex.joint {
-                Some(index) => (index + num_position_bones) as u8,
-                None => INVALID_BONE_INDEX,
-            },
+            // A detached angle bone does not move, thus the vertex stays in place.
+            bone_index: (vertex
+                .joint
+                .or(detached)
+                .expect("convert_joints gives a detached angle bone to vertices without a joint")
+                + num_position_bones) as u8,
             normal: vertex.normal.into(),
             uv: vertex.uv.into(),
             ..Default::default()
@@ -138,9 +153,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn joints_with_three_roots() {
-        // Joints 0, 2 and 4 are roots. Each root has one child.
-        let joints: Vec<_> = [
+    fn joints() {
+        // Joints 0, 2 and 4 are roots. Each root has one child. Joint 6 is detached.
+        let mut joints: Vec<_> = [
             (None, vec![1]),
             (Some(0), vec![]),
             (None, vec![3]),
@@ -155,10 +170,12 @@ mod tests {
             ..Default::default()
         })
         .collect();
+        joints.push(Joint::detached());
 
-        let (position_bones, angle_bones) = convert_joints(&joints);
+        let (position_bones, angle_bones, detached) = convert_joints(&joints, true);
 
-        // Position bone 0 holds all roots. Each child joint has its own position bone.
+        // Position bone 0 holds all roots. Each child joint has its own position bone, and
+        // no position bone refers to the detached joint.
         let position_children: Vec<_> = position_bones.iter().map(|b| &b.children).collect();
         assert_eq!(
             vec![&vec![0, 2, 4], &vec![1], &vec![3], &vec![5]],
@@ -166,8 +183,21 @@ mod tests {
         );
         let angle_children: Vec<_> = angle_bones.iter().map(|b| &b.children).collect();
         assert_eq!(
-            vec![&vec![1], &vec![], &vec![2], &vec![], &vec![3], &vec![]],
+            vec![
+                &vec![1],
+                &vec![],
+                &vec![2],
+                &vec![],
+                &vec![3],
+                &vec![],
+                &vec![]
+            ],
             angle_children
         );
+        assert_eq!(Some(6), detached);
+
+        // Without a detached joint, vertices without a joint get a new angle bone.
+        let (_, angle_bones, detached) = convert_joints(&joints[..6], true);
+        assert_eq!((7, Some(6)), (angle_bones.len(), detached));
     }
 }

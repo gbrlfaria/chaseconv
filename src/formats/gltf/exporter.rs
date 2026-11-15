@@ -116,11 +116,14 @@ fn insert_scene(root: &mut json::Root, skeleton: &[Joint], meshes: &[Mesh]) -> u
 
 fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize {
     let mut roots = Vec::new();
+    let mut detached = Vec::new();
 
     let offset = nodes.len() as u32;
     for (index, joint) in skeleton.iter().enumerate() {
-        if joint.parent.is_none() {
-            roots.push(offset + index as u32)
+        if joint.detached {
+            detached.push(offset + index as u32);
+        } else if joint.parent.is_none() {
+            roots.push(offset + index as u32);
         }
 
         nodes.push(json::Node {
@@ -149,14 +152,26 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
         });
     }
 
-    nodes.push(json::Node {
-        name: Some(String::from("root")),
+    // The skin needs all joints below one root, thus the detached joints are below it too.
+    if !detached.is_empty() {
+        roots.push(nodes.len() as u32);
+        nodes.push(group_node(super::DETACHED_NODE_NAME, &detached));
+    }
+    nodes.push(group_node("root", &roots));
+
+    nodes.len() - 1
+}
+
+fn group_node(name: &str, children: &[u32]) -> json::Node {
+    json::Node {
+        name: Some(String::from(name)),
         // glTF does not permit an empty `children` array.
-        children: if roots.is_empty() {
-            None
-        } else {
-            Some(roots.iter().map(|&root| json::Index::new(root)).collect())
-        },
+        children: (!children.is_empty()).then(|| {
+            children
+                .iter()
+                .map(|&child| json::Index::new(child))
+                .collect()
+        }),
         translation: None,
         camera: None,
         extensions: None,
@@ -167,9 +182,7 @@ fn push_skeleton_nodes(nodes: &mut Vec<json::Node>, skeleton: &[Joint]) -> usize
         skin: None,
         weights: None,
         extras: Default::default(),
-    });
-
-    nodes.len() - 1
+    }
 }
 
 fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32, skinned: bool) -> usize {
@@ -565,8 +578,12 @@ fn insert_joints_bytes(
 
     for vertex in &mesh.vertices {
         // A vertex without a joint uses the skeleton root. The root is the last joint
-        // of the skin and has an identity inverse bind matrix.
-        let joint = vertex.joint.unwrap_or(skeleton.len());
+        // of the skin and has an identity inverse bind matrix. Bone animations do not
+        // move a vertex of a detached joint, thus it also uses the root.
+        let joint = vertex
+            .joint
+            .filter(|&joint| !skeleton[joint].detached)
+            .unwrap_or(skeleton.len());
         buffer.extend_from_slice(&[joint as u8, 0, 0, 0]);
     }
 
@@ -897,18 +914,21 @@ mod tests {
                 rotation: Quat::default(),
                 parent: None,
                 children: vec![1],
+                ..Default::default()
             },
             Joint {
                 translation: Vec3A::new(2., 2., 2.),
                 rotation: Quat::default(),
                 parent: Some(0),
                 children: Vec::new(),
+                ..Default::default()
             },
             Joint {
                 translation: Vec3A::new(0., 0., 0.),
                 rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
+                ..Default::default()
             },
         ];
         let meshes = [Mesh {
@@ -982,9 +1002,10 @@ mod tests {
     fn vertex_without_joint() {
         let mut mesh = triangle(Some(0));
         mesh.vertices[1].joint = None;
+        mesh.vertices[2].joint = Some(1);
         let scene = Scene {
             meshes: vec![mesh],
-            skeleton: vec![Joint::default()],
+            skeleton: vec![Joint::default(), Joint::detached()],
             ..Default::default()
         };
 
@@ -995,8 +1016,9 @@ mod tests {
         let reader = primitive.reader(|_| Some(blob));
         let joints: Vec<_> = reader.read_joints(0).unwrap().into_u16().collect();
         let weights: Vec<_> = reader.read_weights(0).unwrap().into_f32().collect();
-        // Joint 1 is the skeleton root, the last joint of the skin.
-        assert_eq!(vec![[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0]], joints);
+        // Joint 2 is the skeleton root, the last joint of the skin. The vertex of the
+        // detached joint 1 also uses it.
+        assert_eq!(vec![[0, 0, 0, 0], [2, 0, 0, 0], [2, 0, 0, 0]], joints);
         assert_eq!(vec![[1., 0., 0., 0.]; 3], weights);
     }
 }

@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use anyhow::{Context, Result};
 use glam::{Mat4, Vec3A};
 
@@ -30,36 +32,35 @@ impl Importer for P3mImporter {
     }
 }
 
+/// Walks the skeleton from position bone 0. A position bone gives its translation to
+/// its child angle bones, and an angle bone continues to its child position bones. The
+/// angle bones that the walk does not reach are not part of the skeleton, thus they
+/// become detached joints.
 fn convert_joints(position_bones: &[PositionBone], angle_bones: &[AngleBone]) -> Vec<Joint> {
-    let mut joints: Vec<_> = angle_bones.iter().map(|_| Joint::default()).collect();
-
-    // Apply translation to the joints.
-    for p_bone in position_bones {
-        for &child in &p_bone.children {
-            joints[child as usize].translation = p_bone.position.into();
+    let mut joints = vec![Joint::detached(); angle_bones.len()];
+    // Each item is a position bone and the joint of its parent angle bone.
+    let mut queue = VecDeque::from([(0, None)]);
+    while let Some((position_bone, parent)) = queue.pop_front() {
+        let Some(position_bone) = position_bones.get(position_bone) else {
+            continue;
+        };
+        for &child in &position_bone.children {
+            let child = child as usize;
+            // Only the first visit counts. This also stops cycles.
+            if !joints.get(child).is_some_and(|joint| joint.detached) {
+                continue;
+            }
+            joints[child] = Joint {
+                translation: position_bone.position.into(),
+                parent,
+                ..Default::default()
+            };
+            if let Some(parent) = parent {
+                joints[parent].children.push(child);
+            }
+            let next = angle_bones[child].children.iter();
+            queue.extend(next.map(|&position_bone| (position_bone as usize, Some(child))));
         }
-    }
-
-    // Update joint children by squashing position and angle bones.
-    for (joint, a_bone) in joints.iter_mut().zip(angle_bones) {
-        let children = a_bone
-            .children
-            .iter()
-            .flat_map(|&x| &position_bones[x as usize].children);
-        for &child in children {
-            joint.children.push(child as usize);
-        }
-    }
-
-    // Set the parents of the joints.
-    let mut joint_parents: Vec<_> = joints.iter().map(|_| None).collect();
-    for (index, joint) in joints.iter().enumerate() {
-        for &child in &joint.children {
-            joint_parents[child] = Some(index);
-        }
-    }
-    for (child, parent) in joint_parents.into_iter().enumerate() {
-        joints[child].parent = parent;
     }
 
     joints
@@ -176,6 +177,7 @@ mod tests {
                 rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
+                ..Default::default()
             }],
             animations: Vec::new(),
         };
@@ -207,6 +209,32 @@ mod tests {
         };
 
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn unreachable_angle_bones() {
+        // No angle bone refers to position bone 1, thus the walk from position bone 0
+        // does not reach angle bone 1 and its child, angle bone 2.
+        let position_bone = |children| PositionBone {
+            position: [1.; 3],
+            children,
+        };
+        let angle_bone = |children| AngleBone {
+            children,
+            ..Default::default()
+        };
+        let position_bones = [
+            position_bone(vec![0]),
+            position_bone(vec![1]),
+            position_bone(vec![2]),
+        ];
+        let angle_bones = [angle_bone(vec![]), angle_bone(vec![2]), angle_bone(vec![])];
+
+        let actual = convert_joints(&position_bones, &angle_bones);
+
+        let detached: Vec<_> = actual.iter().map(|joint| joint.detached).collect();
+        assert_eq!(vec![false, true, true], detached);
+        assert_eq!(Joint::detached(), actual[1]);
     }
 
     #[test]
@@ -255,24 +283,28 @@ mod tests {
                 rotation: Quat::default(),
                 parent: None,
                 children: vec![2],
+                ..Default::default()
             },
             Joint {
                 translation: Vec3A::new(1., 1., 1.),
                 rotation: Quat::default(),
                 parent: None,
                 children: Vec::new(),
+                ..Default::default()
             },
             Joint {
                 translation: Vec3A::new(2., 2., 2.),
                 rotation: Quat::default(),
                 parent: Some(0),
                 children: vec![3],
+                ..Default::default()
             },
             Joint {
                 translation: Vec3A::new(3., 3., 3.),
                 rotation: Quat::default(),
                 parent: Some(2),
                 children: Vec::new(),
+                ..Default::default()
             },
         ];
 

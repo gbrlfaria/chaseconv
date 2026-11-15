@@ -16,6 +16,9 @@ impl Scene {
     /// the scene.
     pub fn joint_world_transform(&self, index: usize) -> Mat4 {
         let mut joint = &self.skeleton[index];
+        if joint.detached {
+            return Mat4::IDENTITY;
+        }
         let mut transform =
             Mat4::from_rotation_translation(joint.rotation, joint.translation.into());
 
@@ -62,6 +65,23 @@ pub struct Joint {
     /// The indexes of the children of the joint. The indexes refer to the [`Scene`] skeleton.
     /// A joint should have a maximum of 10 children.
     pub children: Vec<usize>,
+    /// A detached joint is not part of the hierarchy. Its world transform is the identity,
+    /// and bone animations do not move its vertices. It keeps its index and its animation
+    /// data, because other models can use them.
+    ///
+    /// In P3M files, a detached joint is an angle bone that the walk from position bone 0
+    /// does not reach.
+    pub detached: bool,
+}
+
+impl Joint {
+    /// Returns a detached joint.
+    pub fn detached() -> Self {
+        Self {
+            detached: true,
+            ..Default::default()
+        }
+    }
 }
 
 /// Represents a keyframe animation sequence. It should be sampled at 55 FPS.
@@ -100,7 +120,8 @@ pub struct Vertex {
     /// The UV-mapping texture coordinates of the vertex.
     pub uv: Vec2,
     /// The index of the single influencing joint in the [`Scene`] skeleton.
-    /// The joint exerts 100% influence over the vertex.
+    /// The joint exerts 100% influence over the vertex. Bone animations do not move a
+    /// vertex without a joint or a vertex of a detached joint.
     pub joint: Option<usize>,
 }
 
@@ -132,24 +153,28 @@ mod tests {
                     rotation: Quat::default(),
                     parent: None,
                     children: vec![1, 2],
+                    ..Default::default()
                 },
                 Joint {
                     translation: Vec3A::new(2., 2., 2.),
                     rotation: Quat::default(),
                     parent: Some(0),
                     children: vec![3],
+                    ..Default::default()
                 },
                 Joint {
                     translation: Vec3A::new(4., 4., 4.),
                     rotation: Quat::default(),
                     parent: Some(0),
                     children: Vec::new(),
+                    ..Default::default()
                 },
                 Joint {
                     translation: Vec3A::new(0., 0., 0.),
                     rotation: Quat::default(),
                     parent: Some(1),
                     children: Vec::new(),
+                    ..Default::default()
                 },
             ],
             animations: Vec::new(),
