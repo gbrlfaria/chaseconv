@@ -501,70 +501,72 @@ mod tests {
     }
 
     fn data() -> (P3m, &'static [u8]) {
-        let mut p3m = P3m::default();
-        p3m.position_bones = vec![
-            PositionBone {
-                position: [0., 0., 0.],
-                children: vec![0],
-            },
-            PositionBone {
-                position: [1., 0., 0.],
-                children: vec![1],
-            },
-        ];
-        p3m.angle_bones = vec![
-            AngleBone {
-                position: [0., 0., 0.],
-                scale: 0.,
-                children: vec![1],
-            },
-            AngleBone {
-                position: [0., 0., 0.],
-                scale: 0.,
-                children: Vec::new(),
-            },
-        ];
-        p3m.faces = vec![[0, 1, 2]];
-        p3m.skin_vertices = vec![
-            SkinVertex {
-                position: [1., 0., 0.],
-                weight: 1.,
-                bone_index: 0,
-                uv: [0., 0.],
-                normal: [1., 0., 0.],
-            },
-            SkinVertex {
-                position: [0., 1., 0.],
-                weight: 1.,
-                bone_index: 0,
-                uv: [0.5, 0.5],
-                normal: [1., 0., 0.],
-            },
-            SkinVertex {
-                position: [1., 0., 1.],
-                weight: 1.,
-                bone_index: 1,
-                uv: [1., 1.],
-                normal: [1., 0., 0.],
-            },
-        ];
-        p3m.mesh_vertices = vec![
-            MeshVertex {
-                position: [1., 0., 0.],
-                uv: [0., 0.],
-                normal: [1., 0., 0.],
-            },
-            MeshVertex {
-                position: [0., 1., 0.],
-                uv: [0.5, 0.5],
-                normal: [1., 0., 0.],
-            },
-            MeshVertex {
-                position: [0., 0., 1.],
-                uv: [1., 1.],
-                normal: [1., 0., 0.],
-            },
-        ];
+        let p3m = P3m {
+            position_bones: vec![
+                PositionBone {
+                    position: [0., 0., 0.],
+                    children: vec![0],
+                },
+                PositionBone {
+                    position: [1., 0., 0.],
+                    children: vec![1],
+                },
+            ],
+            angle_bones: vec![
+                AngleBone {
+                    position: [0., 0., 0.],
+                    scale: 0.,
+                    children: vec![1],
+                },
+                AngleBone {
+                    position: [0., 0., 0.],
+                    scale: 0.,
+                    children: Vec::new(),
+                },
+            ],
+            faces: vec![[0, 1, 2]],
+            skin_vertices: vec![
+                SkinVertex {
+                    position: [1., 0., 0.],
+                    weight: 1.,
+                    bone_index: 0,
+                    uv: [0., 0.],
+                    normal: [1., 0., 0.],
+                },
+                SkinVertex {
+                    position: [0., 1., 0.],
+                    weight: 1.,
+                    bone_index: 0,
+                    uv: [0.5, 0.5],
+                    normal: [1., 0., 0.],
+                },
+                SkinVertex {
+                    position: [1., 0., 1.],
+                    weight: 1.,
+                    bone_index: 1,
+                    uv: [1., 1.],
+                    normal: [1., 0., 0.],
+                },
+            ],
+            mesh_vertices: vec![
+                MeshVertex {
+                    position: [1., 0., 0.],
+                    uv: [0., 0.],
+                    normal: [1., 0., 0.],
+                },
+                MeshVertex {
+                    position: [0., 1., 0.],
+                    uv: [0.5, 0.5],
+                    normal: [1., 0., 0.],
+                },
+                MeshVertex {
+                    position: [0., 0., 1.],
+                    uv: [1., 1.],
+                    normal: [1., 0., 0.],
+                },
+            ],
+            ..Default::default()
+        };
 
         const DATA: [u8; 619] = [
             0x50, 0x65, 0x72, 0x66, 0x61, 0x63, 0x74, 0x20, 0x33, 0x44, 0x20, 0x4d, 0x6f, 0x64,
