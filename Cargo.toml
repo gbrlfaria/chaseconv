@@ -1,6 +1,6 @@
 [package]
 name = "chaseconv"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Gabriel Faria"]
 edition = "2021"
 

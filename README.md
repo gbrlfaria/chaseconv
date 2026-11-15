@@ -1,8 +1,7 @@
 # Chaseconv
 
-[![](https://img.shields.io/badge/version-v0.2.2-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
-[![](https://img.shields.io/github/downloads/gabriel-dev/chaseconv/latest/total)](https://github.com/gabriel-dev/chaseconv/releases/latest)
-[![](https://img.shields.io/github/license/gabriel-dev/chaseconv)](./LICENSE)
+[![](https://img.shields.io/badge/version-v0.3.0-orange)](https://github.com/gbrlfaria/chaseconv/releases/latest)
+[![](https://img.shields.io/github/license/gbrlfaria/chaseconv)](./LICENSE)
 
 Chaseconv is a fast and simple 3D asset converter for [Grand Chase](https://en.wikipedia.org/wiki/Grand_Chase). It can convert 3D assets from the game into GLTF files and vice-versa.
 
@@ -10,7 +9,7 @@ Chaseconv is a fast and simple 3D asset converter for [Grand Chase](https://en.w
 
 ## Download
 
-You can download the application in the [Releases Page](https://github.com/gabriel-dev/chaseconv/releases/latest).
+You can download the application in the [Releases Page](https://github.com/gbrlfaria/chaseconv/releases/latest).
 
 ## Usage
 
