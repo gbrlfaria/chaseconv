@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use glam::Vec3A;
+use glam::{Mat4, Vec3A};
 
 use crate::{
     asset::Asset,
@@ -7,7 +7,7 @@ use crate::{
     scene::{Joint, Mesh, Scene, Vertex},
 };
 
-use super::internal::{AngleBone, P3m, PositionBone, SkinVertex, INVALID_BONE_INDEX};
+use super::internal::{AngleBone, P3m, PositionBone, SkinVertex};
 
 #[derive(Default)]
 pub struct P3mImporter {}
@@ -85,18 +85,18 @@ fn convert_vertices(
     skin_vertices
         .iter()
         .map(|vertex| {
-            let joint = vertex.bone_index as usize - num_position_bones;
+            // The slot uses 8-bit arithmetic, thus the subtraction wraps. A slot outside
+            // the skeleton does not attach the vertex to a joint.
+            let slot = vertex.bone_index.wrapping_sub(num_position_bones as u8) as usize;
+            let joint = (slot < scene.skeleton.len()).then_some(slot);
+            let transform = joint
+                .map(|joint| scene.joint_world_transform(joint))
+                .unwrap_or(Mat4::IDENTITY);
             Vertex {
-                position: scene
-                    .joint_world_transform(joint)
-                    .transform_point3a(Vec3A::from(vertex.position)),
+                position: transform.transform_point3a(Vec3A::from(vertex.position)),
                 normal: Vec3A::from(vertex.normal),
                 uv: vertex.uv.into(),
-                joint: if joint != INVALID_BONE_INDEX as usize {
-                    Some(joint)
-                } else {
-                    None
-                },
+                joint,
             }
         })
         .collect()
@@ -109,6 +109,31 @@ mod tests {
     use glam::{Quat, Vec2, Vec3A};
 
     use super::*;
+
+    #[test]
+    fn vertices_outside_skeleton() {
+        // With two position bones, bone index 2 is slot 0, index 3 is slot 1 (no joint),
+        // and index 1 wraps to slot 255 (no joint).
+        let skin_vertices = [2, 3, 1].map(|bone_index| SkinVertex {
+            position: [1., 0., 0.],
+            bone_index,
+            ..Default::default()
+        });
+        let scene = Scene {
+            skeleton: vec![Joint {
+                translation: Vec3A::new(0., 1., 0.),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let actual = convert_vertices(&skin_vertices, 2, &scene);
+
+        let joints: Vec<_> = actual.iter().map(|vertex| vertex.joint).collect();
+        assert_eq!(vec![Some(0), None, None], joints);
+        assert_eq!(Vec3A::new(1., 1., 0.), actual[0].position);
+        assert_eq!(Vec3A::new(1., 0., 0.), actual[1].position);
+    }
 
     #[test]
     fn mesh() {
