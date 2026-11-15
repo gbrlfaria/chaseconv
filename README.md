@@ -1,6 +1,6 @@
 # Chaseconv
 
-[![](https://img.shields.io/badge/version-v0.2.1-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
+[![](https://img.shields.io/badge/version-v0.2.2-orange)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/downloads/gabriel-dev/chaseconv/latest/total)](https://github.com/gabriel-dev/chaseconv/releases/latest)
 [![](https://img.shields.io/github/license/gabriel-dev/chaseconv)](./LICENSE)
 
