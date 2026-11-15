@@ -724,7 +724,7 @@ fn insert_time_bytes(
         max: Some(
             [times
                 .iter()
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .copied()
                 .unwrap_or_default()]
             .as_ref()
