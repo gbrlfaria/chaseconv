@@ -829,12 +829,32 @@ fn decompose(transform: &Mat4) -> (Vec3, Quat, Vec3) {
     let axes =
         [transform.x_axis, transform.y_axis, transform.z_axis].map(|axis| sign * axis.truncate());
     let lengths = Vec3::new(axes[0].length(), axes[1].length(), axes[2].length());
-    let rotation = Quat::from_mat3(&Mat3::from_cols(
-        axes[0] / lengths.x,
-        axes[1] / lengths.y,
-        axes[2] / lengths.z,
-    ));
+    let rotation = Quat::from_mat3(&rotation_axes(axes));
     (sign * lengths, rotation, transform.w_axis.truncate())
+}
+
+/// Returns the directions of the axes as the columns of a rotation matrix. Animations
+/// can scale an axis to zero, for example to hide vertices. Such an axis has no
+/// direction, thus it gets a direction that completes the other axes.
+fn rotation_axes(axes: [Vec3; 3]) -> Mat3 {
+    let mut units = axes.map(Vec3::try_normalize);
+    match units.iter().filter(|unit| unit.is_some()).count() {
+        0 => return Mat3::IDENTITY,
+        1 => {
+            let index = units.iter().position(Option::is_some).unwrap();
+            let unit = units[index].unwrap();
+            units[(index + 1) % 3] = Some(unit.any_orthonormal_vector());
+        }
+        _ => {}
+    }
+    // The cross product of the next two axes gives a right-handed set.
+    for index in 0..3 {
+        if units[index].is_none() {
+            let (next, last) = (units[(index + 1) % 3], units[(index + 2) % 3]);
+            units[index] = Some(next.unwrap().cross(last.unwrap()));
+        }
+    }
+    Mat3::from_cols(units[0].unwrap(), units[1].unwrap(), units[2].unwrap())
 }
 
 /// Inserts VEC3 or VEC4 float values and returns the index of their accessor.
@@ -1025,11 +1045,20 @@ mod tests {
     fn decompose_transforms() {
         let rotation = Quat::from_rotation_x(0.3);
         let mirror = Vec3::new(-1., 1., 1.);
-        for scale in [Vec3::new(2., 1., 0.5), mirror] {
+        let scales = [
+            Vec3::new(2., 1., 0.5),
+            mirror,
+            // Zero scales, which hide vertices.
+            Vec3::new(0., 1., 2.),
+            Vec3::new(0., 0., 2.),
+            Vec3::ZERO,
+        ];
+        for scale in scales {
             let transform = Mat4::from_scale_rotation_translation(scale, rotation, Vec3::X);
 
             let (scale, rotation, translation) = decompose(&transform);
 
+            assert!(rotation.is_finite());
             let actual = Mat4::from_scale_rotation_translation(scale, rotation, translation);
             assert!(actual.abs_diff_eq(transform, 1e-6));
         }
