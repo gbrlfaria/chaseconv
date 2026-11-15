@@ -186,7 +186,7 @@ fn read_ibm_world_transforms(
 }
 
 /// The animation input time should already be sampled at 55 FPS. All channels should be
-/// the same length. Joint translations and scales are ignored.
+/// the same length.
 fn convert_animations(
     gltf: &gltf::Gltf,
     buffers: &[Vec<u8>],
@@ -194,6 +194,15 @@ fn convert_animations(
     num_joints: usize,
     skeleton_root_index: Option<usize>,
 ) -> Vec<Animation> {
+    // A translation channel replaces the translation of its node, thus the bone
+    // translation is the difference between them.
+    let mut rest_translations = vec![Vec3::ZERO; num_joints];
+    for node in gltf.nodes() {
+        if let Some(&joint) = joint_map.get(&node.index()) {
+            rest_translations[joint] = node.transform().decomposed().0.into();
+        }
+    }
+
     let mut result = Vec::new();
     for animation in gltf.animations() {
         let mut root_translations: Vec<Vec3> = Vec::new();
@@ -266,25 +275,12 @@ fn convert_animations(
                 let root_translation = root_translations.get(i).copied().unwrap_or_default();
                 let transforms: Vec<Mat4> = (0..num_joints)
                     .map(|j| {
-                        let _translation = translations
-                            .get(j)
-                            .and_then(|v| v.get(i))
-                            .copied()
-                            .unwrap_or_default();
-                        let rotation = rotations
-                            .get(j)
-                            .and_then(|v| v.get(i))
-                            .copied()
-                            .unwrap_or(Quat::IDENTITY);
-                        let _scale = scales
-                            .get(j)
-                            .and_then(|v| v.get(i))
-                            .copied()
-                            .unwrap_or_else(|| Vec3::new(1., 1., 1.));
-
-                        // Currently, translation and scale are ignored. Only rotation
-                        // is taken into account.
-                        Mat4::from_rotation_translation(rotation, Vec3::ZERO)
+                        let translation = translations[j]
+                            .get(i)
+                            .map_or(Vec3::ZERO, |&t| t - rest_translations[j]);
+                        let rotation = rotations[j].get(i).copied().unwrap_or(Quat::IDENTITY);
+                        let scale = scales[j].get(i).copied().unwrap_or(Vec3::ONE);
+                        Mat4::from_scale_rotation_translation(scale, rotation, translation)
                     })
                     .collect();
                 Keyframe {
@@ -497,6 +493,42 @@ mod tests {
         // The animation data of a detached joint stays, because other models can use it.
         let transform = actual.animations[0].frames[1].transforms[1];
         assert!(transform.abs_diff_eq(Mat4::from_rotation_x(1.), 1e-6));
+    }
+
+    #[test]
+    fn bone_scale_and_translation() {
+        let transform = Mat4::from_scale_rotation_translation(
+            Vec3::new(2., 1., 0.5),
+            Quat::from_rotation_y(0.5),
+            Vec3::X,
+        );
+        // The joint translation is not zero, thus the importer must subtract it.
+        let scene = Scene {
+            skeleton: vec![Joint {
+                translation: Vec3A::new(0., 3., 0.),
+                ..Default::default()
+            }],
+            animations: vec![Animation {
+                name: String::from("wait"),
+                frames: vec![Keyframe {
+                    translation: Vec3A::ZERO,
+                    transforms: vec![transform],
+                }],
+            }],
+            ..Default::default()
+        };
+        let bytes = GltfExporter::default()
+            .export(&scene)
+            .unwrap()
+            .remove(0)
+            .bytes;
+
+        let mut actual = Scene::default();
+        GltfImporter::default()
+            .import(&Asset::new(bytes, "model.glb"), &mut actual)
+            .unwrap();
+
+        assert!(actual.animations[0].frames[0].transforms[0].abs_diff_eq(transform, 1e-5));
     }
 
     #[test]

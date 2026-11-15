@@ -2,8 +2,9 @@ use std::{collections::HashMap, mem};
 
 use anyhow::Result;
 use byteorder::{WriteBytesExt, LE};
-use glam::Mat4;
+use glam::{Mat3, Mat4, Quat, Vec3};
 use gltf::{
+    animation::Property,
     json::{
         self,
         mesh::{Primitive, Semantic},
@@ -36,7 +37,7 @@ impl Exporter for GltfExporter {
             &mut root,
             &mut buffer,
             &scene.animations,
-            scene.skeleton.len(),
+            &scene.skeleton,
             skeleton_index,
         )?;
         insert_buffers(&mut root, &buffer);
@@ -305,9 +306,12 @@ fn insert_animations(
     root: &mut json::Root,
     buffer: &mut Vec<u8>,
     animations: &[Animation],
-    skeleton_len: usize,
+    skeleton: &[Joint],
     skeleton_index: usize,
 ) -> Result<()> {
+    // Values closer than this to the identity transform carry no data.
+    const EPSILON: f32 = 1e-5;
+
     for animation in animations {
         let mut gltf_animation = json::Animation {
             name: Some(animation.name.clone()),
@@ -318,34 +322,12 @@ fn insert_animations(
         };
 
         let time_accessor = insert_time_bytes(root, buffer, animation)?;
-
-        let translations_accessor = insert_translations_bytes(root, buffer, animation)?;
-        gltf_animation.samplers.push(json::animation::Sampler {
-            input: json::Index::new(time_accessor as u32),
-            output: json::Index::new(translations_accessor as u32),
-            // For the sake of simplicity, we use linear interpolation. In reality,
-            // Grand Chase uses bezier curves with unknown in-tangent and out-tangent values.
-            interpolation: Checked::Valid(gltf::animation::Interpolation::Linear),
-            extensions: None,
-            extras: Default::default(),
-        });
-        gltf_animation.channels.push(json::animation::Channel {
-            sampler: json::Index::new(gltf_animation.channels.len() as u32),
-            target: json::animation::Target {
-                node: json::Index::new(skeleton_index as u32),
-                path: Checked::Valid(gltf::animation::Property::Translation),
-                extensions: None,
-                extras: Default::default(),
-            },
-            extensions: None,
-            extras: Default::default(),
-        });
-
-        for (index, transforms) in animation.joints().iter().enumerate().take(skeleton_len) {
-            let rotations_accessor = insert_rotations_bytes(root, buffer, transforms)?;
+        let mut push_channel = |output, node, path| {
             gltf_animation.samplers.push(json::animation::Sampler {
                 input: json::Index::new(time_accessor as u32),
-                output: json::Index::new(rotations_accessor as u32),
+                output: json::Index::new(output as u32),
+                // For the sake of simplicity, we use linear interpolation. In reality,
+                // Grand Chase uses bezier curves with unknown in-tangent and out-tangent values.
                 interpolation: Checked::Valid(gltf::animation::Interpolation::Linear),
                 extensions: None,
                 extras: Default::default(),
@@ -353,18 +335,57 @@ fn insert_animations(
             gltf_animation.channels.push(json::animation::Channel {
                 sampler: json::Index::new(gltf_animation.channels.len() as u32),
                 target: json::animation::Target {
-                    // The index of the loop corresponds to the index of the joint node
-                    // because joints are the first things to be inserted into the scene hierarchy.
-                    node: json::Index::new(index as u32),
-                    path: Checked::Valid(gltf::animation::Property::Rotation),
+                    node: json::Index::new(node as u32),
+                    path: Checked::Valid(path),
                     extensions: None,
                     extras: Default::default(),
                 },
                 extensions: None,
                 extras: Default::default(),
             });
+        };
 
-            // TODO: translations of individual joints are not currently supported for exporting.
+        let translations: Vec<[f32; 3]> = animation
+            .frames
+            .iter()
+            .map(|frame| frame.translation.into())
+            .collect();
+        let output = insert_vectors_bytes(root, buffer, &translations)?;
+        push_channel(output, skeleton_index, Property::Translation);
+
+        for (index, transforms) in animation.joints().iter().enumerate().take(skeleton.len()) {
+            let parts: Vec<_> = transforms
+                .iter()
+                .map(|&transform| decompose(transform))
+                .collect();
+
+            // The index of the loop is also the index of the joint node, because joints
+            // are the first nodes in the scene hierarchy.
+            let rotations: Vec<[f32; 4]> = parts.iter().map(|(_, r, _)| r.to_array()).collect();
+            let output = insert_vectors_bytes(root, buffer, &rotations)?;
+            push_channel(output, index, Property::Rotation);
+
+            if parts
+                .iter()
+                .any(|(_, _, t)| t.abs().max_element() > EPSILON)
+            {
+                // The channel replaces the translation of the node, thus it adds the node
+                // translation to the bone translation.
+                let rest = Vec3::from(skeleton[index].translation);
+                let translations: Vec<[f32; 3]> =
+                    parts.iter().map(|&(_, _, t)| (rest + t).into()).collect();
+                let output = insert_vectors_bytes(root, buffer, &translations)?;
+                push_channel(output, index, Property::Translation);
+            }
+
+            if parts
+                .iter()
+                .any(|(s, _, _)| !s.abs_diff_eq(Vec3::ONE, EPSILON))
+            {
+                let scales: Vec<[f32; 3]> = parts.iter().map(|&(s, _, _)| s.into()).collect();
+                let output = insert_vectors_bytes(root, buffer, &scales)?;
+                push_channel(output, index, Property::Scale);
+            }
         }
 
         root.animations.push(gltf_animation);
@@ -795,62 +816,43 @@ fn insert_time_bytes(
     Ok(root.accessors.len() - 1)
 }
 
-fn insert_translations_bytes(
-    root: &mut json::Root,
-    buffer: &mut Vec<u8>,
-    animation: &Animation,
-) -> Result<usize> {
-    let accessor = json::Accessor {
-        buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
-        byte_offset: 0,
-        count: animation.frames.len() as u32,
-        type_: Checked::Valid(json::accessor::Type::Vec3),
-        component_type: Checked::Valid(json::accessor::GenericComponentType(
-            json::accessor::ComponentType::F32,
-        )),
-        min: None,
-        max: None,
-        name: None,
-        normalized: false,
-        sparse: None,
-        extensions: None,
-        extras: Default::default(),
+/// Splits a transform into scale, rotation and translation. A mirror (a negative
+/// determinant) gets a negative scale on all three axes. A single negative axis depends
+/// on the orientation of the bone axes, and tools that change those axes on import do
+/// not keep it. A uniform scale does not depend on them.
+fn decompose(transform: &Mat4) -> (Vec3, Quat, Vec3) {
+    let sign = if Mat3::from_mat4(*transform).determinant() < 0. {
+        -1.
+    } else {
+        1.
     };
-
-    align_to(buffer, mem::size_of::<f32>());
-    let view = json::buffer::View {
-        buffer: json::Index::new(root.buffers.len() as u32),
-        byte_offset: Some(buffer.len() as u32),
-        byte_length: (animation.frames.len() * mem::size_of::<[f32; 3]>()) as u32,
-        byte_stride: None,
-        name: None,
-        target: None,
-        extensions: None,
-        extras: Default::default(),
-    };
-
-    for frame in &animation.frames {
-        for &coordinate in frame.translation.as_ref() {
-            buffer.write_f32::<LE>(coordinate)?;
-        }
-    }
-
-    root.accessors.push(accessor);
-    root.buffer_views.push(view);
-
-    Ok(root.accessors.len() - 1)
+    let axes =
+        [transform.x_axis, transform.y_axis, transform.z_axis].map(|axis| sign * axis.truncate());
+    let lengths = Vec3::new(axes[0].length(), axes[1].length(), axes[2].length());
+    let rotation = Quat::from_mat3(&Mat3::from_cols(
+        axes[0] / lengths.x,
+        axes[1] / lengths.y,
+        axes[2] / lengths.z,
+    ));
+    (sign * lengths, rotation, transform.w_axis.truncate())
 }
 
-fn insert_rotations_bytes(
+/// Inserts VEC3 or VEC4 float values and returns the index of their accessor.
+fn insert_vectors_bytes<const N: usize>(
     root: &mut json::Root,
     buffer: &mut Vec<u8>,
-    rotations: &[&Mat4],
+    values: &[[f32; N]],
 ) -> Result<usize> {
+    let type_ = match N {
+        3 => json::accessor::Type::Vec3,
+        4 => json::accessor::Type::Vec4,
+        _ => unreachable!("only VEC3 and VEC4 values are used"),
+    };
     let accessor = json::Accessor {
         buffer_view: Some(json::Index::new(root.buffer_views.len() as u32)),
         byte_offset: 0,
-        count: rotations.len() as u32,
-        type_: Checked::Valid(json::accessor::Type::Vec4),
+        count: values.len() as u32,
+        type_: Checked::Valid(type_),
         component_type: Checked::Valid(json::accessor::GenericComponentType(
             json::accessor::ComponentType::F32,
         )),
@@ -867,7 +869,7 @@ fn insert_rotations_bytes(
     let view = json::buffer::View {
         buffer: json::Index::new(root.buffers.len() as u32),
         byte_offset: Some(buffer.len() as u32),
-        byte_length: (rotations.len() * mem::size_of::<[f32; 4]>()) as u32,
+        byte_length: mem::size_of_val(values) as u32,
         byte_stride: None,
         name: None,
         target: None,
@@ -875,11 +877,8 @@ fn insert_rotations_bytes(
         extras: Default::default(),
     };
 
-    for matrix in rotations {
-        let (_, rotation, _) = matrix.to_scale_rotation_translation();
-        for &value in rotation.as_ref() {
-            buffer.write_f32::<LE>(value)?;
-        }
+    for &value in values.iter().flatten() {
+        buffer.write_f32::<LE>(value)?;
     }
 
     root.accessors.push(accessor);
@@ -1020,5 +1019,33 @@ mod tests {
         // detached joint 1 also uses it.
         assert_eq!(vec![[0, 0, 0, 0], [2, 0, 0, 0], [2, 0, 0, 0]], joints);
         assert_eq!(vec![[1., 0., 0., 0.]; 3], weights);
+    }
+
+    #[test]
+    fn decompose_transforms() {
+        let rotation = Quat::from_rotation_x(0.3);
+        let mirror = Vec3::new(-1., 1., 1.);
+        for scale in [Vec3::new(2., 1., 0.5), mirror] {
+            let transform = Mat4::from_scale_rotation_translation(scale, rotation, Vec3::X);
+
+            let (scale, rotation, translation) = decompose(&transform);
+
+            let actual = Mat4::from_scale_rotation_translation(scale, rotation, translation);
+            assert!(actual.abs_diff_eq(transform, 1e-6));
+        }
+
+        // A mirror gets a negative scale on all three axes.
+        let (scale, _, _) = decompose(&Mat4::from_scale_rotation_translation(
+            mirror,
+            rotation,
+            Vec3::ZERO,
+        ));
+        assert!(scale.abs_diff_eq(Vec3::NEG_ONE, 1e-6));
+
+        // A projective part does not change the sign of the scale.
+        let mut projective = Mat4::from_quat(rotation);
+        projective.w_axis.w = -1.;
+        let (scale, _, _) = decompose(&projective);
+        assert!(scale.abs_diff_eq(Vec3::ONE, 1e-6));
     }
 }

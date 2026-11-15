@@ -61,7 +61,8 @@ When round-tripping through Blender (GLTF → Blender → GLTF → P3M/FRM), use
 - All bones of the model should be named "bone_X", where X is the index of the bone (e.g., "bone_0", "bone_1", ...). The root bone should be named "root".
 - The name "detached" is reserved for one node below "root". The bones below this node are not part of the skeleton, and bone animations do not move their vertices. To detach a bone, move it below this node. If a tool renames this node, its bones become normal root bones.
 - Bone rotations in the bind pose are supported. Models exported from tools like Blender (which may add bone orientation rotations) can be converted back without issues.
-- Regarding animations, the bones of the model only support rotations, whereas the root bone only supports translations.
+- In animations, the bones of the model keep their rotation, scale (also mirrors) and translation, whereas the root bone keeps only its translation. A shear or a projective part in a bone matrix is lost.
+- A mirrored bone gets a negative scale on all three axes, because Blender keeps only this form correctly. If a bone changes between mirrored and not mirrored from one frame to the next, a glTF viewer can show an incorrect pose between these two frames. The frames themselves are correct.
 - Only the first skeleton/skin in each GLTF file will be taken into account.
 - Bone rotation matrices undergo a quaternion round-trip during conversion, which introduces precision loss of ~0.03–0.05°.
 
