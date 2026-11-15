@@ -27,7 +27,7 @@ impl Exporter for FrmExporter {
             } else {
                 "animation"
             };
-            let asset = Asset::new(frm.to_bytes()?, &format!("anim_{}.frm", name));
+            let asset = Asset::new(frm.to_bytes()?, &format!("{}.frm", name));
 
             result.push(asset);
         }

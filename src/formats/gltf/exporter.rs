@@ -188,7 +188,7 @@ fn group_node(name: &str, children: &[u32]) -> json::Node {
 
 fn push_mesh_node(nodes: &mut Vec<json::Node>, mesh: &Mesh, index: u32, skinned: bool) -> usize {
     nodes.push(json::Node {
-        name: Some(format!("mesh_{}", mesh.name)),
+        name: Some(format!("{}{}", super::MESH_NAME_PREFIX, mesh.name)),
         mesh: Some(json::Index::new(index)),
         skin: skinned.then(|| json::Index::new(0)),
         children: None,
@@ -273,7 +273,7 @@ fn insert_meshes(
         }
 
         root.meshes.push(json::Mesh {
-            name: Some(format!("mesh_{}", mesh.name)),
+            name: Some(format!("{}{}", super::MESH_NAME_PREFIX, mesh.name)),
             primitives: vec![Primitive {
                 attributes,
                 extensions: None,

@@ -7,6 +7,9 @@ use crate::scene::Scene;
 mod exporter;
 mod importer;
 
+/// The prefix of the mesh names in the glTF files that chaseconv writes.
+const MESH_NAME_PREFIX: &str = "mesh_";
+
 /// The name of the node that holds the detached joints.
 const DETACHED_NODE_NAME: &str = "detached";
 
